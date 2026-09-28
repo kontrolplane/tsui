@@ -1,0 +1,40 @@
+{
+  "stream": {
+    "name": "METRICS",
+    "description": "host telemetry",
+    "subjects": ["metrics.>"],
+    "retention": "limits",
+    "storage": "memory",
+    "discard": "old",
+    "max_consumers": -1,
+    "max_msgs": -1,
+    "max_bytes": 67108864,
+    "max_msgs_per_subject": 100,
+    "max_msg_size": 4096,
+    "max_age": 3600000000000,
+    "num_replicas": 1,
+    "allow_direct": true
+  },
+  "consumers": [
+    {
+      "durable_name": "alerting",
+      "description": "raises alerts on thresholds",
+      "filter_subject": "metrics.*.cpu",
+      "deliver_policy": "last_per_subject",
+      "ack_policy": "none",
+      "replay_policy": "instant"
+    }
+  ],
+  "messages": [
+    { "subject": "metrics.web-01.cpu", "body": { "usage": 0.42, "cores": 8 } },
+    { "subject": "metrics.web-01.mem", "body": { "used": 6120, "total": 16384, "unit": "MiB" } },
+    { "subject": "metrics.web-02.cpu", "body": { "usage": 0.37, "cores": 8 } },
+    { "subject": "metrics.web-02.mem", "body": { "used": 5980, "total": 16384, "unit": "MiB" } },
+    { "subject": "metrics.db-01.cpu", "body": { "usage": 0.91, "cores": 16 } },
+    { "subject": "metrics.db-01.mem", "body": { "used": 58112, "total": 65536, "unit": "MiB" } },
+    { "subject": "metrics.db-01.disk", "body": { "used": 812, "total": 1024, "unit": "GiB", "mount": "/var/lib/postgresql" } },
+    { "subject": "metrics.web-01.cpu", "body": { "usage": 0.55, "cores": 8 } },
+    { "subject": "metrics.web-02.cpu", "body": { "usage": 0.61, "cores": 8 } },
+    { "subject": "metrics.db-01.cpu", "body": { "usage": 0.88, "cores": 16 } }
+  ]
+}

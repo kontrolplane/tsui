@@ -1,0 +1,56 @@
+{
+  "stream": {
+    "name": "EVENTS",
+    "description": "user activity",
+    "subjects": ["events.*"],
+    "retention": "limits",
+    "storage": "memory",
+    "discard": "old",
+    "max_consumers": -1,
+    "max_msgs": 10000,
+    "max_bytes": -1,
+    "max_msgs_per_subject": -1,
+    "max_msg_size": -1,
+    "max_age": 86400000000000,
+    "num_replicas": 1,
+    "allow_direct": true
+  },
+  "consumers": [
+    {
+      "durable_name": "sessions",
+      "description": "builds user sessions",
+      "deliver_policy": "all",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 3,
+      "replay_policy": "instant",
+      "seed_ack": 9
+    },
+    {
+      "durable_name": "search-insights",
+      "filter_subject": "events.search",
+      "deliver_policy": "all",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 3,
+      "replay_policy": "instant"
+    }
+  ],
+  "messages": [
+    { "subject": "events.login", "body": { "userId": "20319", "ip": "10.0.4.12" } },
+    { "subject": "events.pageview", "body": { "userId": "20319", "path": "/pricing" } },
+    { "subject": "events.pageview", "body": { "userId": "20319", "path": "/checkout" } },
+    { "subject": "events.logout", "body": { "userId": "20319" } },
+    { "subject": "events.signup", "body": { "userId": "20440", "plan": "team", "referrer": "newsletter" } },
+    { "subject": "events.login", "body": { "userId": "20440", "ip": "10.0.7.88", "mfa": true } },
+    { "subject": "events.search", "body": { "userId": "20440", "query": "mechanical keyboard", "results": 42 } },
+    { "subject": "events.pageview", "body": { "userId": "20440", "path": "/products/KB-104" } },
+    { "subject": "events.cart", "body": { "userId": "20440", "sku": "KB-104", "action": "add" } },
+    { "subject": "events.search", "body": { "userId": "18821", "query": "usb-c hub", "results": 0 } },
+    { "subject": "events.login", "body": { "userId": "18821", "ip": "10.0.2.3" } },
+    { "subject": "events.pageview", "body": { "userId": "18821", "path": "/account/orders" } },
+    { "subject": "events.search", "body": { "userId": "20440", "query": "monitor 27 inch", "results": 17 } },
+    { "subject": "events.cart", "body": { "userId": "20440", "sku": "MN-270", "action": "add" } },
+    { "subject": "events.logout", "body": { "userId": "18821" } }
+  ]
+}

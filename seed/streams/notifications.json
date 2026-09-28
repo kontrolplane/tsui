@@ -1,0 +1,56 @@
+{
+  "stream": {
+    "name": "NOTIFICATIONS",
+    "description": "outbound email, sms and push",
+    "subjects": ["notifications.*"],
+    "retention": "interest",
+    "storage": "file",
+    "discard": "old",
+    "max_consumers": -1,
+    "max_msgs": -1,
+    "max_bytes": -1,
+    "max_msgs_per_subject": -1,
+    "max_msg_size": -1,
+    "max_age": 172800000000000,
+    "num_replicas": 1,
+    "allow_direct": true
+  },
+  "consumers": [
+    {
+      "durable_name": "email-sender",
+      "filter_subject": "notifications.email",
+      "deliver_policy": "all",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 5,
+      "replay_policy": "instant",
+      "seed_ack": 1
+    },
+    {
+      "durable_name": "sms-sender",
+      "filter_subject": "notifications.sms",
+      "deliver_policy": "all",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 5,
+      "replay_policy": "instant"
+    },
+    {
+      "durable_name": "push-sender",
+      "filter_subject": "notifications.push",
+      "deliver_policy": "all",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 5,
+      "replay_policy": "instant"
+    }
+  ],
+  "messages": [
+    { "subject": "notifications.email", "body": { "to": "cus_0042", "template": "order-shipped", "orderId": "ord_7291830" } },
+    { "subject": "notifications.push", "body": { "to": "cus_0311", "title": "Your order is on its way", "orderId": "ord_7291832" } },
+    { "subject": "notifications.sms", "body": { "to": "+31600000000", "text": "Your verification code is 482913" } },
+    { "subject": "notifications.email", "body": { "to": "cus_0877", "template": "order-delivered", "orderId": "ord_7291834" } },
+    { "subject": "notifications.push", "body": { "to": "cus_1024", "title": "Payment received", "orderId": "ord_7291836" } },
+    { "subject": "notifications.email", "body": { "to": "cus_0042", "template": "refund-issued", "orderId": "ord_7291835", "amount": 24.99 } }
+  ]
+}

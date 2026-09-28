@@ -1,0 +1,40 @@
+{
+  "stream": {
+    "name": "JOBS",
+    "description": "background work queue",
+    "subjects": ["jobs.>"],
+    "retention": "workqueue",
+    "storage": "file",
+    "discard": "old",
+    "max_consumers": -1,
+    "max_msgs": -1,
+    "max_bytes": -1,
+    "max_msgs_per_subject": -1,
+    "max_msg_size": -1,
+    "max_age": 0,
+    "num_replicas": 1,
+    "deny_delete": true,
+    "allow_direct": true
+  },
+  "consumers": [
+    {
+      "durable_name": "worker",
+      "deliver_policy": "all",
+      "ack_policy": "explicit",
+      "ack_wait": 60000000000,
+      "max_deliver": 3,
+      "replay_policy": "instant",
+      "seed_ack": 2
+    }
+  ],
+  "messages": [
+    { "subject": "jobs.email.send", "body": { "to": "user@example.com", "template": "welcome" } },
+    { "subject": "jobs.thumbnail.render", "body": { "image": "img_2291.png", "sizes": [64, 256] } },
+    { "subject": "jobs.report.generate", "body": { "report": "monthly-revenue", "month": "2026-08" } },
+    { "subject": "jobs.email.send", "body": { "to": "billing@example.com", "template": "invoice", "invoiceId": "inv_30041" } },
+    { "subject": "jobs.thumbnail.render", "body": { "image": "img_2292.png", "sizes": [64, 256, 1024] } },
+    { "subject": "jobs.search.reindex", "body": { "index": "products", "reason": "catalog import" } },
+    { "subject": "jobs.export.csv", "headers": { "Requested-By": "cus_0042" }, "body": { "export": "order-history", "range": { "from": "2026-01-01", "to": "2026-09-30" } } },
+    { "subject": "jobs.email.send", "body": { "to": "ops@example.com", "template": "weekly-digest" } }
+  ]
+}

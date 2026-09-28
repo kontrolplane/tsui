@@ -1,0 +1,85 @@
+{
+  "stream": {
+    "name": "ORDERS",
+    "description": "customer orders",
+    "subjects": ["orders.>"],
+    "retention": "limits",
+    "storage": "file",
+    "discard": "old",
+    "max_consumers": -1,
+    "max_msgs": -1,
+    "max_bytes": -1,
+    "max_msgs_per_subject": -1,
+    "max_msg_size": -1,
+    "max_age": 604800000000000,
+    "duplicate_window": 120000000000,
+    "num_replicas": 1,
+    "allow_direct": true
+  },
+  "consumers": [
+    {
+      "durable_name": "fulfilment",
+      "description": "ships orders in the EU",
+      "filter_subject": "orders.eu.>",
+      "deliver_policy": "all",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 5,
+      "replay_policy": "instant",
+      "seed_ack": 6
+    },
+    {
+      "durable_name": "billing",
+      "description": "invoices every order",
+      "deliver_policy": "all",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": -1,
+      "replay_policy": "instant",
+      "seed_ack": 14
+    },
+    {
+      "durable_name": "analytics",
+      "description": "revenue dashboards",
+      "filter_subject": "orders.*.created",
+      "deliver_policy": "all",
+      "ack_policy": "none",
+      "replay_policy": "instant"
+    },
+    {
+      "durable_name": "us-warehouse",
+      "filter_subject": "orders.us.>",
+      "deliver_policy": "new",
+      "ack_policy": "explicit",
+      "ack_wait": 30000000000,
+      "max_deliver": 5,
+      "replay_policy": "instant"
+    }
+  ],
+  "messages": [
+    { "subject": "orders.eu.created", "headers": { "Nats-Msg-Id": "ord_7291830" }, "body": { "orderId": "ord_7291830", "customer": "cus_0042", "total": 129.95, "currency": "EUR", "items": [{ "sku": "KB-104", "qty": 1 }] } },
+    { "subject": "orders.us.created", "headers": { "Nats-Msg-Id": "ord_7291831" }, "body": { "orderId": "ord_7291831", "customer": "cus_0187", "total": 49.0, "currency": "USD", "items": [{ "sku": "MS-220", "qty": 2 }] } },
+    { "subject": "orders.eu.paid", "body": { "orderId": "ord_7291830", "paymentId": "pay_88213" } },
+    { "subject": "orders.ap.created", "headers": { "Nats-Msg-Id": "ord_7291832" }, "body": { "orderId": "ord_7291832", "customer": "cus_0311", "total": 310.5, "currency": "JPY", "items": [{ "sku": "HD-900", "qty": 1 }] } },
+    { "subject": "orders.eu.shipped", "body": { "orderId": "ord_7291830", "carrier": "postnl", "tracking": "3SPNL0021" } },
+    { "subject": "orders.us.cancelled", "body": { "orderId": "ord_7291831", "reason": "customer request" } },
+    { "subject": "orders.eu.created", "headers": { "Nats-Msg-Id": "ord_7291833", "Content-Type": "application/json" }, "body": { "orderId": "ord_7291833", "customer": "cus_0519", "total": 842.0, "currency": "EUR", "items": [{ "sku": "MN-270", "qty": 2 }, { "sku": "CB-030", "qty": 4 }], "shipping": { "method": "express", "country": "DE" } } },
+    { "subject": "orders.ap.paid", "body": { "orderId": "ord_7291832", "paymentId": "pay_88214" } },
+    { "subject": "orders.us.created", "headers": { "Nats-Msg-Id": "ord_7291834" }, "body": { "orderId": "ord_7291834", "customer": "cus_0877", "total": 1299.0, "currency": "USD", "items": [{ "sku": "LT-1400", "qty": 1 }], "coupon": "FALL26" } },
+    { "subject": "orders.eu.paid", "body": { "orderId": "ord_7291833", "paymentId": "pay_88215" } },
+    { "subject": "orders.us.paid", "body": { "orderId": "ord_7291834", "paymentId": "pay_88216" } },
+    { "subject": "orders.eu.delivered", "body": { "orderId": "ord_7291830", "signedBy": "J. de Vries" } },
+    { "subject": "orders.ap.shipped", "body": { "orderId": "ord_7291832", "carrier": "yamato", "tracking": "YMT-4471-0921" } },
+    { "subject": "orders.eu.created", "headers": { "Nats-Msg-Id": "ord_7291835" }, "body": { "orderId": "ord_7291835", "customer": "cus_0042", "total": 24.99, "currency": "EUR", "items": [{ "sku": "CB-030", "qty": 1 }] } },
+    { "subject": "orders.us.shipped", "body": { "orderId": "ord_7291834", "carrier": "ups", "tracking": "1Z999AA10123456784" } },
+    { "subject": "orders.eu.shipped", "body": { "orderId": "ord_7291833", "carrier": "dhl", "tracking": "JJD0099812345" } },
+    { "subject": "orders.us.created", "headers": { "Nats-Msg-Id": "ord_7291836" }, "body": { "orderId": "ord_7291836", "customer": "cus_1024", "total": 89.5, "currency": "USD", "items": [{ "sku": "HS-310", "qty": 1 }, { "sku": "MS-220", "qty": 1 }] } },
+    { "subject": "orders.eu.refunded", "body": { "orderId": "ord_7291835", "amount": 24.99, "reason": "damaged in transit" } },
+    { "subject": "orders.ap.delivered", "body": { "orderId": "ord_7291832", "signedBy": "K. Tanaka" } },
+    { "subject": "orders.us.paid", "body": { "orderId": "ord_7291836", "paymentId": "pay_88217" } },
+    { "subject": "orders.eu.created", "headers": { "Nats-Msg-Id": "ord_7291837" }, "body": { "orderId": "ord_7291837", "customer": "cus_1190", "total": 459.0, "currency": "EUR", "items": [{ "sku": "HD-900", "qty": 1 }], "shipping": { "method": "standard", "country": "NL" } } },
+    { "subject": "orders.us.delivered", "body": { "orderId": "ord_7291834", "signedBy": "front desk" } },
+    { "subject": "orders.ap.created", "headers": { "Nats-Msg-Id": "ord_7291838" }, "body": { "orderId": "ord_7291838", "customer": "cus_1233", "total": 5400, "currency": "JPY", "items": [{ "sku": "MS-220", "qty": 1 }] } },
+    { "subject": "orders.eu.paid", "body": { "orderId": "ord_7291837", "paymentId": "pay_88218" } }
+  ]
+}
