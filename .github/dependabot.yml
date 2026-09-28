@@ -21,3 +21,8 @@ updates:
       nats:
         patterns:
           - "github.com/nats-io/*"
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly

@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -77,6 +78,13 @@ func cmdName(cmd tea.Cmd) string {
 	return runtime.FuncForPC(reflect.ValueOf(cmd).Pointer()).Name()
 }
 
+// cmdFile returns the source file that defines the function behind a command.
+func cmdFile(cmd tea.Cmd) string {
+	pc := reflect.ValueOf(cmd).Pointer()
+	file, _ := runtime.FuncForPC(pc).FileLine(pc)
+	return filepath.ToSlash(file)
+}
+
 // collect runs the commands that talk to NATS and returns their messages. Timers (refresh ticks,
 // status clearing, spinner, cursor blink) and the system clipboard are skipped, which keeps the
 // flows fast and deterministic.
@@ -84,9 +92,12 @@ func collect(cmd tea.Cmd) []tea.Msg {
 	if cmd == nil {
 		return nil
 	}
+	// Closure names depend on what the compiler inlines (a command can show up as
+	// pkg/tui.model.Init.LoadStreams.request.func3), so commands are told apart by the file
+	// that defines them instead.
 	name := cmdName(cmd)
-	batch := strings.Contains(name, "bubbletea/v2.compactCmds")
-	if !batch && (!strings.Contains(name, "pkg/tui/commands.") || strings.Contains(name, "CopyToClipboard")) {
+	batch := strings.Contains(name, ".compactCmds[")
+	if !batch && (!strings.HasSuffix(cmdFile(cmd), "/pkg/tui/commands/commands.go") || strings.Contains(name, "CopyToClipboard")) {
 		return nil
 	}
 	msg := cmd()

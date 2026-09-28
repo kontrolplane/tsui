@@ -20,7 +20,7 @@ func TestReviewStatusHeaderPoisonsDirectListing(t *testing.T) {
 			}
 			for i := range 10 {
 				h := nats.Header{}
-				var data []byte = []byte(fmt.Sprint(i))
+				data := []byte(fmt.Sprint(i))
 				if i == 3 {
 					h.Set("Status", status)
 					data = nil

@@ -33,6 +33,11 @@ const maxScanFactor = 20
 // up_to_seq for a plain batch, so a window with gaps is answered with messages past its end.
 const directBatchMax = 1000
 
+// directBatchMaxBytes bounds the bytes sent for one batched direct get. Without it the server sends
+// up to its max pending, the same limit at which it cuts off a client as a slow consumer, so a
+// batch of large messages to a busy client loses the connection and the rest of the batch.
+const directBatchMaxBytes = 8 * 1024 * 1024
+
 // directTimeout applies to batched direct gets when the caller did not set a deadline.
 const directTimeout = 10 * time.Second
 
@@ -226,6 +231,7 @@ type directGetRequest struct {
 	Seq        uint64 `json:"seq"`
 	NextBySubj string `json:"next_by_subj,omitempty"`
 	Batch      int    `json:"batch"`
+	MaxBytes   int    `json:"max_bytes,omitempty"`
 }
 
 // directRange returns the messages with a sequence in [start, upTo], oldest first, limited to those
@@ -262,9 +268,9 @@ func directBatch(ctx context.Context, nc *nats.Conn, subject, name, filter strin
 	if err != nil {
 		return nil, false, err
 	}
-	defer sub.Unsubscribe()
+	defer func() { _ = sub.Unsubscribe() }()
 
-	req, err := json.Marshal(directGetRequest{Seq: seq, NextBySubj: filter, Batch: batch})
+	req, err := json.Marshal(directGetRequest{Seq: seq, NextBySubj: filter, Batch: batch, MaxBytes: directBatchMaxBytes})
 	if err != nil {
 		return nil, false, err
 	}

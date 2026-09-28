@@ -16,12 +16,8 @@ compile:
     SAVE ARTIFACT build/kontrolplane/tsui AS LOCAL build/kontrolplane/tsui
 
 container:
-    FROM alpine:3.22
     ARG VERSION=dev
-    COPY (+compile/tsui --VERSION=${VERSION}) /usr/local/bin/tsui
-    RUN adduser -D -H -u 10001 tsui
-    USER tsui
-    ENTRYPOINT ["/usr/local/bin/tsui"]
+    FROM DOCKERFILE --build-arg VERSION=${VERSION} .
     ARG tag="latest"
     SAVE IMAGE ghcr.io/kontrolplane/tsui:${tag}
 

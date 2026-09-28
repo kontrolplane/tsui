@@ -25,8 +25,6 @@ The header shows the server you are connected to, the round trip time and the Je
 <img alt="message publish" src="./assets/pages/message/publish.png">
 <img alt="stream consumers" src="./assets/pages/stream/consumers.png">
 <img alt="consumer details" src="./assets/pages/consumer/details.png">
-<img alt="stream creation" src="./assets/pages/stream/creation.png">
-<img alt="stream purge" src="./assets/pages/stream/purge.png">
 
 ## keybindings
 
@@ -72,6 +70,12 @@ go install github.com/kontrolplane/tsui@latest
 ```
 
 Prebuilt binaries for linux, macos and windows are attached to the [GitHub releases](https://github.com/kontrolplane/tsui/releases), together with a `checksums.txt` to verify the download.
+
+A container image for linux/amd64 and linux/arm64 is published to `ghcr.io/kontrolplane/tsui`, tagged with the release version and `latest` for releases, and `main` for the latest commit on main:
+
+```bash
+docker run --rm -it --network host ghcr.io/kontrolplane/tsui:latest --server nats://127.0.0.1:4222
+```
 
 ## connecting
 
