@@ -296,7 +296,8 @@ func TestGetServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Name != "tsui-test" || s.Version == "" || s.RTT <= 0 {
+	// Windows' clock can measure a loopback round trip as zero.
+	if s.Name != "tsui-test" || s.Version == "" || s.RTT < 0 {
 		t.Errorf("unexpected server info: %+v", s)
 	}
 	if s.Streams != 1 || s.Consumers != 1 || s.Memory == 0 || s.Store != 0 {

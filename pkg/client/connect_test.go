@@ -31,6 +31,13 @@ func runServer(t *testing.T, opts *server.Options) *server.Server {
 	return srv
 }
 
+// setHome points os.UserHomeDir at dir, which reads USERPROFILE on Windows and HOME elsewhere.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
+}
+
 func selectContext(t *testing.T, dir, name string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, "nats", "context.txt"), []byte(name+"\n"), 0o600); err != nil {
@@ -69,7 +76,7 @@ func TestResolvePrecedence(t *testing.T) {
 	dir := t.TempDir()
 	home := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	writeContext(t, dir, "prod", `{
 		"url": "nats://prod:4222",
 		"creds": "~/.nkeys/prod.creds",
@@ -144,7 +151,7 @@ func TestResolveBrokenContexts(t *testing.T) {
 func TestConfigDirFallsBackToHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", "")
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	if got, want := configDir(), filepath.Join(home, ".config", "nats"); got != want {
 		t.Errorf("configDir() = %q, want %q", got, want)
 	}
