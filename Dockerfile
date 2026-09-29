@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
     -o /out/tsui .
 
-FROM alpine:3.22
+FROM alpine:3.24
 COPY --from=build /out/tsui /usr/local/bin/tsui
 RUN adduser -D -H -u 10001 tsui
 USER tsui
