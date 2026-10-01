@@ -277,8 +277,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err == nil {
 			m.server = msg.Server
 			m.serverOK = true
+			m.rttOK = true
 		} else {
-			m.server.RTT = 0
+			m.rttOK = false
 		}
 		return m, commands.ScheduleServerRefresh()
 

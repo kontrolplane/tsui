@@ -377,6 +377,9 @@ func TestFormatHelpers(t *testing.T) {
 	if formatRTT(300*time.Microsecond) != "300µs" || formatRTT(12345*time.Microsecond) != "12.3ms" {
 		t.Errorf("unexpected rtt formatting: %q %q", formatRTT(300*time.Microsecond), formatRTT(12345*time.Microsecond))
 	}
+	if formatRTT(0) != "<1ms" {
+		t.Errorf("expected a round trip below the clock resolution to read <1ms, got %q", formatRTT(0))
+	}
 	if plural(1, "stream") != "1 stream" || plural(1200, "message") != "1,200 messages" {
 		t.Error("unexpected plural output")
 	}
