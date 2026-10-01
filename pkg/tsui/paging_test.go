@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -32,7 +33,8 @@ func pagingStreams(t *testing.T, js jetstream.JetStream, prefix string, n int, s
 			msg := nats.NewMsg(fmt.Sprintf("%s%d.%s", prefix, j, subjectOf(i)))
 			msg.Data = []byte(fmt.Sprint(i))
 			msg.Header.Set("N", fmt.Sprint(i))
-			if _, err := js.PublishMsgAsync(msg); err != nil {
+			// The default 200ms stall wait is too short for slow runners under -race.
+			if _, err := js.PublishMsgAsync(msg, jetstream.WithStallWait(10*time.Second)); err != nil {
 				t.Fatal(err)
 			}
 		}
