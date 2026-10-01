@@ -40,6 +40,29 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
+homebrew_casks:
+  - name: tsui
+    binaries:
+      - tsui
+    repository:
+      owner: kontrolplane
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Casks
+    homepage: https://kontrolplane.dev/projects/#tsui
+    description: "A terminal user interface for NATS."
+    license: MIT
+    commit_author:
+      use_github_app_token: true
+    commit_msg_template: "{{ .ProjectName }}: update to {{ .Tag }}"
+    skip_upload: auto
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/tsui"]
+          end
+
 changelog:
   sort: asc
   filters:
