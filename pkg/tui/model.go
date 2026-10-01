@@ -87,6 +87,7 @@ type model struct {
 	info        client.Info
 	server      tsui.Server
 	serverOK    bool
+	rttOK       bool
 	context     context.Context
 	width       int
 	height      int

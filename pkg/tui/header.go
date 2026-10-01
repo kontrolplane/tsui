@@ -240,7 +240,12 @@ func plural(n int, noun string) string {
 	return fmt.Sprintf("%s %ss", formatCount(uint64(n)), noun)
 }
 
+// formatRTT renders a round trip time. Zero means the round trip was shorter than the clock
+// resolution, which happens against a nearby server on platforms with a coarse clock (Windows).
 func formatRTT(d time.Duration) string {
+	if d <= 0 {
+		return "<1ms"
+	}
 	if d < time.Millisecond {
 		return d.Round(time.Microsecond).String()
 	}
@@ -251,7 +256,7 @@ func formatRTT(d time.Duration) string {
 // whether refreshing is paused.
 func (m model) connectionState() string {
 	status := m.connectionStatus()
-	if m.serverOK && m.server.RTT > 0 && m.conn != nil && m.conn.IsConnected() {
+	if m.rttOK && m.conn != nil && m.conn.IsConnected() {
 		status = append(status, styles.S(" · rtt ", styles.ToneFaint), styles.S(formatRTT(m.server.RTT), styles.ToneBody))
 	}
 	if m.paused {

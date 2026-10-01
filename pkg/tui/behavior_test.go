@@ -207,7 +207,7 @@ func TestBackgroundErrorsGoToTheFooter(t *testing.T) {
 
 	m, _ = update(t, m, messages.ServerLoadedMsg{Server: tsui.Server{RTT: time.Millisecond}})
 	m, _ = update(t, m, messages.ServerLoadedMsg{Err: errors.New("timeout")})
-	if m.server.RTT != 0 {
+	if m.rttOK {
 		t.Error("expected a failed server load to clear the rtt")
 	}
 	if _, foot := m.frameMeta(); strings.Contains(ansi.Strip(foot), "rtt") {
