@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
 	"charm.land/lipgloss/v2"
@@ -54,5 +55,40 @@ func TestPlaceMatchesLipgloss(t *testing.T) {
 		if got != want {
 			t.Errorf("%v:\n%q\nwant\n%q", size, got, want)
 		}
+	}
+}
+
+func TestWrapLineKeepsWordsWhole(t *testing.T) {
+	line := `{"customer":"cus_4419","duration_ms":113,"msg":"request served"} and a verylongwordthatdoesnotfitanywhere`
+	pieces := wrapLine(line, 24)
+	if strings.Join(pieces, "") != line {
+		t.Fatalf("pieces %q lost text", pieces)
+	}
+	want := []string{`{"customer":"cus_4419",`, `"duration_ms":113,`, `"msg":"request served"} `,
+		// No break in the second half: cut where the piece is full rather than leave it short.
+		`and a verylongwordthatdo`, `esnotfitanywhere`}
+	if strings.Join(pieces, "|") != strings.Join(want, "|") {
+		t.Errorf("pieces\n%q\nwant\n%q", pieces, want)
+	}
+	for _, p := range wrapLine("日本語のログ日本語のログ", 5) {
+		if w := textWidth(p); w > 5 {
+			t.Errorf("piece %q is %d wide", p, w)
+		}
+	}
+}
+
+func TestPayloadWrapsBetweenWords(t *testing.T) {
+	p := newPayloadText([]byte(`{"msg":"payment provider unavailable, retrying in a while","id":7}`))
+	got := strings.Split(ansi.Strip(p.render(30)), "\n")
+	want := []string{
+		`{`,
+		`  "msg": "payment provider `,
+		`unavailable, retrying in a `,
+		`while",`,
+		`  "id": 7`,
+		`}`,
+	}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Errorf("payload\n%q\nwant\n%q", got, want)
 	}
 }

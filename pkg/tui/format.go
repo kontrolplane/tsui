@@ -241,7 +241,13 @@ func (p payloadText) render(width int) string {
 	}
 	text := p.text
 	if width > 0 {
-		text = ansi.Hardwrap(text, width, true)
+		// Between words where it can, so values stay whole. Every byte stays, so the colouring of
+		// JSON reads the same text.
+		lines := strings.Split(text, "\n")
+		for i, line := range lines {
+			lines[i] = strings.Join(wrapLine(line, width), "\n")
+		}
+		text = strings.Join(lines, "\n")
 	}
 	var out string
 	if p.json {
