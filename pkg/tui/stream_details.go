@@ -374,7 +374,8 @@ func payloadPreview(data []byte) cell {
 	case !utf8.Valid(data):
 		return text(fmt.Sprintf("<binary, %s>", formatBytes(uint64(len(data)))), styles.ToneFaint)
 	default:
-		return text(preview(data, 200), styles.ToneBody)
+		// JSON and logfmt keep their keys back, so the values are what the column reads as.
+		return tint(styles.Clean(preview(data, 200)))
 	}
 }
 
