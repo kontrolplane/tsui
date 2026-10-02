@@ -82,3 +82,36 @@ func TestDialogFrom(t *testing.T) {
 		t.Error("the overview is not a dialog")
 	}
 }
+
+// The help puts the keys of the page it is asked on first, and keeps them when the rest does not
+// fit.
+func TestHelpPutsTheCurrentPageFirst(t *testing.T) {
+	defer setLayout(140, 25)
+	first := func(m model) string {
+		view := ansi.Strip(m.render())
+		at := len(view)
+		name := ""
+		for _, s := range helpSections {
+			if i := strings.Index(view, "│    "+s.title+" "); i >= 0 && i < at {
+				at, name = i, s.title
+			}
+		}
+		return name
+	}
+	m, _ := update(t, detailsModel(t), tea.WindowSizeMsg{Width: 200, Height: 50})
+	if m, _ := update(t, m, press("?")); first(m) != "stream" {
+		t.Errorf("on the stream details the first section is %q", first(m))
+	}
+	m, _ = update(t, m, press("enter"), press("?"))
+	if first(m) != "message" {
+		t.Errorf("on a message the first section is %q", first(m))
+	}
+	m, _ = update(t, m, press("esc"), tea.WindowSizeMsg{Width: minContentWidth + chromeWidth, Height: minContentHeight + chromeHeight}, press("?"))
+	if view := ansi.Strip(m.render()); !strings.Contains(view, "copy payload") || strings.Contains(view, "new stream") {
+		t.Error("on the smallest terminal the help should keep the keys of the message alone")
+	}
+	m, _ = update(t, m, press("esc"), press("ctrl+d"))
+	if m.page != messageDelete || m.helpPage() != messageDetails {
+		t.Errorf("a dialog asked on a message should help with the message, page %v help %v", m.page, m.helpPage())
+	}
+}

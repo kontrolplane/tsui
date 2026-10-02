@@ -937,7 +937,7 @@ func (m model) renderHelp() string {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(styles.P.RuleBold).
 			Padding(fit.padY, fit.padX).
-			Render(m.renderHelpContent(contentWidth-4-2*fit.padX, fit.gap))
+			Render(m.renderHelpContent(contentWidth-4-2*fit.padX, contentHeight-2-2*fit.padY, fit.gap))
 		if lipgloss.Width(card) <= contentWidth-2 && lipgloss.Height(card) <= contentHeight {
 			break
 		}
@@ -945,50 +945,110 @@ func (m model) renderHelp() string {
 	return card
 }
 
-// renderHelpContent lays the help out in three columns, or the subjects under the other two when
-// three do not fit width.
-func (m model) renderHelpContent(width, gap int) string {
-	title := func(s string) string {
-		return styles.Fg(styles.ToneAccent).Bold(true).MarginBottom(1).Render(s)
+// helpSection is a column of the key reference, for the page it names and the forms and dialogs
+// opened from it.
+type helpSection struct {
+	page  page
+	title string
+	rows  [][2]string
+}
+
+var helpSections = []helpSection{
+	{streamOverview, "streams", [][2]string{
+		{"↑/k ↓/j", "move"},
+		{"g / G", "first / last"},
+		{"pgup/pgdn", "page"},
+		{"enter", "open"},
+		{"space", "select"},
+		{"ctrl+n", "new stream"},
+		{"ctrl+p", "purge"},
+		{"ctrl+d", "delete"},
+		{"/", "filter"},
+		{"r / p", "refresh / pause"},
+		{"q", "quit"},
+	}},
+	{streamDetails, "stream", [][2]string{
+		{"tab/⇧tab", "next / previous tab"},
+		{"enter", "open"},
+		{"space", "select"},
+		{"↓ at end", "older messages"},
+		{"f", "follow newest"},
+		{"#", "go to sequence"},
+		{"ctrl+n", "publish"},
+		{"ctrl+d", "delete"},
+		{"ctrl+p", "purge a subject"},
+		{"c", "copy"},
+		{"/", "filter"},
+		{"r / p", "refresh / pause"},
+		{"q / esc", "back"},
+	}},
+	{messageDetails, "message", [][2]string{
+		{"↑/↓ g/G", "scroll"},
+		{"tab", "headers / payload"},
+		{"c", "copy payload"},
+		{"ctrl+d", "delete"},
+		{"q / esc", "back"},
+	}},
+	{consumerDetails, "consumer", [][2]string{
+		{"c", "copy name"},
+		{"r / p", "refresh / pause"},
+		{"ctrl+d", "delete"},
+		{"q / esc", "back"},
+	}},
+}
+
+// helpPage is the page whose keys the help puts first: the current one, or for a form or dialog
+// the page it was opened from.
+func (m model) helpPage() page {
+	p := m.page
+	if from, ok := m.dialogFrom(); ok {
+		p = from
+	}
+	switch p {
+	case streamCreate:
+		return streamOverview
+	case messagePublish:
+		return streamDetails
+	}
+	return p
+}
+
+// renderHelpContent lays the sections out with the one of the current page first: side by side
+// when they fit, else in rows of three or two, else the current page with the subjects, else the
+// current page alone.
+func (m model) renderHelpContent(width, height, gap int) string {
+	current := m.helpPage()
+	title := func(s string, on bool) string {
+		tone := styles.ToneMuted
+		if on {
+			tone = styles.ToneAccent
+		}
+		return styles.Fg(tone).Bold(true).MarginBottom(1).Render(s)
 	}
 	keyStyle := styles.Fg(styles.ToneText).Bold(true).Width(11)
 	row := func(key, desc string) string {
 		return keyStyle.Render(key) + styles.Muted(desc)
 	}
 
-	navigation := lipgloss.JoinVertical(lipgloss.Left,
-		title("navigation"),
-		row("↑/k ↓/j", "move"),
-		row("g / G", "first / last"),
-		row("pgup/pgdn", "page"),
-		row("↓ at end", "older messages"),
-		row("enter", "open"),
-		row("tab/⇧tab", "next / previous"),
-		row("y / n", "answer a dialog"),
-		row("q", "back, quit"),
-		row("esc", "back, clear filter"),
-		row("ctrl+c", "quit"),
-	)
-
-	actions := lipgloss.JoinVertical(lipgloss.Left,
-		title("actions"),
-		row("space", "select"),
-		row("c", "copy payload or name"),
-		row("ctrl+n", "new stream, publish"),
-		row("ctrl+d", "delete"),
-		row("ctrl+p", "purge"),
-		row("r / p", "refresh / pause"),
-		row("f", "follow newest"),
-		row("#", "go to sequence"),
-		row("/", "filter"),
-		row("?", "help"),
-	)
+	var columns []string
+	for _, s := range helpSections {
+		lines := []string{title(s.title, s.page == current)}
+		for _, r := range s.rows {
+			lines = append(lines, row(r[0], r[1]))
+		}
+		column := lipgloss.JoinVertical(lipgloss.Left, lines...)
+		if s.page == current {
+			columns = append([]string{column}, columns...)
+		} else {
+			columns = append(columns, column)
+		}
+	}
 
 	wildcard := func(subject, desc string) string {
 		return lipgloss.NewStyle().Width(18).Render(styles.Render(styles.Subject(subject, styles.ToneText)...)) + styles.Muted(desc)
 	}
 	subjects := lipgloss.JoinVertical(lipgloss.Left,
-		title("subjects"),
+		title("subjects", false),
 		wildcard("orders.*.created", "one token"),
 		wildcard("orders.>", "the rest"),
 		"",
@@ -996,14 +1056,43 @@ func (m model) renderHelpContent(width, gap int) string {
 		styles.Muted("consumer filters take"),
 		styles.Muted("wildcards, publishing"),
 		styles.Muted("does not."),
+		"",
+		title("dialogs", false),
+		row("y / n", "yes / no"),
+		row("←/→ enter", "choose"),
+		row("ctrl+c", "quit"),
 	)
+	columns = append(columns, subjects)
 
 	spaced := lipgloss.NewStyle().MarginRight(gap)
-	columns := lipgloss.JoinHorizontal(lipgloss.Top, spaced.Render(navigation), spaced.Render(actions), subjects)
-	if lipgloss.Width(columns) > width {
-		columns = lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.JoinHorizontal(lipgloss.Top, spaced.Render(navigation), actions), "", subjects)
+	grid := func(perRow int, cols ...string) string {
+		var rows []string
+		for i := 0; i < len(cols); i += perRow {
+			line := slices.Clone(cols[i:min(i+perRow, len(cols))])
+			for j := range line[:len(line)-1] {
+				line[j] = spaced.Render(line[j])
+			}
+			if len(rows) > 0 {
+				rows = append(rows, "")
+			}
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, line...))
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, rows...)
 	}
+	// Room for the closing hint under the sections.
+	fits := func(s string) bool { return lipgloss.Width(s) <= width && lipgloss.Height(s) <= height-2 }
 
-	return lipgloss.JoinVertical(lipgloss.Center, columns, "", styles.Faint("press any key to close"))
+	body := columns[0]
+	for _, layout := range []string{
+		grid(len(columns), columns...),
+		grid(3, columns...),
+		grid(2, columns...),
+		grid(2, columns[0], subjects),
+	} {
+		if fits(layout) {
+			body = layout
+			break
+		}
+	}
+	return lipgloss.JoinVertical(lipgloss.Center, body, "", styles.Faint("press any key to close"))
 }
