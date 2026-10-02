@@ -37,7 +37,7 @@ The header shows the server you are connected to, the round trip time and the Je
 - `←`, `h`: left
 - `g`, `G`: first/last row, top/bottom of a payload
 - `pgup`, `pgdn`: page up/down
-- `tab`, `shift+tab`: switch between messages, consumers and subjects
+- `tab`, `shift+tab`: switch between messages, consumers and subjects; in a message's details, scroll its headers instead of the payload when there are more than fit
 - `ctrl+n`: create stream/publish message
 - `ctrl+d`: delete stream/message/consumer
 - `ctrl+p`: purge stream, on the subjects tab the subject under the cursor

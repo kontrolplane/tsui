@@ -651,54 +651,84 @@ func (m model) render() string {
 		frame(styles.Render(m.breadcrumb()...), meta, foot, c) + "\n" +
 		m.renderFooter()
 
-	placed := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, mainView)
-	if m.width > 0 {
-		placed = clip(placed, m.width, m.height)
+	if m.width == 0 {
+		return mainView
 	}
-	return placed
+	return place(m.width, m.height, mainView)
 }
 
-// content renders what the frame holds: the page, or the error, loading or help in its place.
+// content renders what the frame holds: the page, with the help or an error over it, or the
+// loading notice in its place.
 func (m model) content() string {
-	var c string
-
+	page := m.pageView()
 	switch {
+	case m.showHelp:
+		return overlay(page, m.renderHelp())
 	case m.error != "":
-		c = m.ErrorView()
-	case m.loading:
-		c = m.LoadingView()
-	default:
-		switch m.page {
-		case streamOverview:
-			c = m.StreamOverviewView()
-		case streamDetails:
-			c = m.StreamDetailsView()
-		case streamCreate:
-			c = m.StreamCreateView()
-		case streamDelete:
-			c = m.StreamDeleteView()
-		case streamPurge:
-			c = m.StreamPurgeView()
-		case messageDetails:
-			c = m.MessageDetailsView()
-		case messagePublish:
-			c = m.MessagePublishView()
-		case messageDelete:
-			c = m.MessageDeleteView()
-		case consumerDetails:
-			c = m.ConsumerDetailsView()
-		case consumerDelete:
-			c = m.ConsumerDeleteView()
-		default:
-			c = errNoPageSelected
+		return overlay(page, m.ErrorView())
+	}
+	return page
+}
+
+// pageView renders the page, a confirmation over the page it was asked from.
+func (m model) pageView() string {
+	if m.loading {
+		return m.LoadingView()
+	}
+	if from, ok := m.dialogFrom(); ok {
+		return overlay(m.view(from), m.view(m.page))
+	}
+	return m.view(m.page)
+}
+
+// dialogFrom is the page a confirmation was asked from, which stays in sight behind it.
+func (m model) dialogFrom() (page, bool) {
+	switch m.page {
+	case streamDelete:
+		return streamOverview, true
+	case streamPurge:
+		if m.state.streamPurge.fromOverview {
+			return streamOverview, true
 		}
+		return streamDetails, true
+	case messageDelete:
+		if m.state.messageDelete.fromDetails {
+			return messageDetails, true
+		}
+		return streamDetails, true
+	case consumerDelete:
+		if m.state.consumerDelete.fromDetails {
+			return consumerDetails, true
+		}
+		return streamDetails, true
 	}
+	return 0, false
+}
 
-	if m.showHelp {
-		c = m.renderHelpOverlay()
+func (m model) view(p page) string {
+	switch p {
+	case streamOverview:
+		return m.StreamOverviewView()
+	case streamDetails:
+		return m.StreamDetailsView()
+	case streamCreate:
+		return m.StreamCreateView()
+	case streamDelete:
+		return m.StreamDeleteView()
+	case streamPurge:
+		return m.StreamPurgeView()
+	case messageDetails:
+		return m.MessageDetailsView()
+	case messagePublish:
+		return m.MessagePublishView()
+	case messageDelete:
+		return m.MessageDeleteView()
+	case consumerDetails:
+		return m.ConsumerDetailsView()
+	case consumerDelete:
+		return m.ConsumerDeleteView()
 	}
-
-	return c
+	return errNoPageSelected
 }
 
 func (m model) LoadingView() string {
@@ -816,12 +846,21 @@ func (m model) renderFilterBar(inputView string) string {
 // fitHints renders the hints that fit width. Hints are dropped from the end but for the last two,
 // help and back or quit, which stay.
 func fitHints(width int, pairs ...[2]string) string {
-	pairs = slices.Clone(pairs)
-	for len(pairs) > 2 && lipgloss.Width(hints(pairs...)) > width {
-		pairs = slices.Delete(pairs, len(pairs)-3, len(pairs)-2)
+	var key strings.Builder
+	fmt.Fprint(&key, width)
+	for _, p := range pairs {
+		key.WriteString("\x00" + p[0] + "\x00" + p[1])
 	}
-	return hints(pairs...)
+	return hintsMemo.get(key.String(), func() string {
+		pairs = slices.Clone(pairs)
+		for len(pairs) > 2 && styledWidth(hints(pairs...)) > width {
+			pairs = slices.Delete(pairs, len(pairs)-3, len(pairs)-2)
+		}
+		return hints(pairs...)
+	})
 }
+
+var hintsMemo memo
 
 func hints(pairs ...[2]string) string {
 	parts := make([]string, len(pairs))
@@ -865,6 +904,16 @@ func (m model) shortHelp() [][2]string {
 	switch m.page {
 	case streamDetails:
 		return detailsTabHelp[m.state.streamDetails.tab]
+	case messageDetails:
+		h := shortHelp[messageDetails]
+		if d := m.state.messageDetails; d.fieldsOverflow() {
+			panel := "headers"
+			if d.onFields {
+				panel = "payload"
+			}
+			h = slices.Insert(slices.Clone(h), 1, [2]string{"tab", panel})
+		}
+		return h
 	case streamPurge:
 		p := m.state.streamPurge
 		switch {
@@ -880,66 +929,126 @@ func (m model) shortHelp() [][2]string {
 	return shortHelp[m.page]
 }
 
-// renderHelpOverlay draws the key reference in a card, as roomy as the content area allows.
-func (m model) renderHelpOverlay() string {
-	var overlay string
+// renderHelp draws the key reference in a card, as roomy as the content area allows.
+func (m model) renderHelp() string {
+	var card string
 	for _, fit := range []struct{ padY, padX, gap int }{{1, 4, 6}, {1, 2, 3}, {0, 2, 3}} {
-		overlay = lipgloss.NewStyle().
+		card = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(styles.P.RuleBold).
 			Padding(fit.padY, fit.padX).
-			Render(m.renderHelpContent(contentWidth-2-2*fit.padX, fit.gap))
-		if lipgloss.Width(overlay) <= contentWidth && lipgloss.Height(overlay) <= contentHeight {
+			Render(m.renderHelpContent(contentWidth-4-2*fit.padX, contentHeight-2-2*fit.padY, fit.gap))
+		if lipgloss.Width(card) <= contentWidth-2 && lipgloss.Height(card) <= contentHeight {
 			break
 		}
 	}
-	return lipgloss.Place(contentWidth, contentHeight, lipgloss.Center, lipgloss.Center, overlay)
+	return card
 }
 
-// renderHelpContent lays the help out in three columns, or the subjects under the other two when
-// three do not fit width.
-func (m model) renderHelpContent(width, gap int) string {
-	title := func(s string) string {
-		return styles.Fg(styles.ToneAccent).Bold(true).MarginBottom(1).Render(s)
+// helpSection is a column of the key reference, for the page it names and the forms and dialogs
+// opened from it.
+type helpSection struct {
+	page  page
+	title string
+	rows  [][2]string
+}
+
+var helpSections = []helpSection{
+	{streamOverview, "streams", [][2]string{
+		{"↑/k ↓/j", "move"},
+		{"g / G", "first / last"},
+		{"pgup/pgdn", "page"},
+		{"enter", "open"},
+		{"space", "select"},
+		{"ctrl+n", "new stream"},
+		{"ctrl+p", "purge"},
+		{"ctrl+d", "delete"},
+		{"/", "filter"},
+		{"r / p", "refresh / pause"},
+		{"q", "quit"},
+	}},
+	{streamDetails, "stream", [][2]string{
+		{"tab/⇧tab", "next / previous tab"},
+		{"enter", "open"},
+		{"space", "select"},
+		{"↓ at end", "older messages"},
+		{"f", "follow newest"},
+		{"#", "go to sequence"},
+		{"ctrl+n", "publish"},
+		{"ctrl+d", "delete"},
+		{"ctrl+p", "purge a subject"},
+		{"c", "copy"},
+		{"/", "filter"},
+		{"r / p", "refresh / pause"},
+		{"q / esc", "back"},
+	}},
+	{messageDetails, "message", [][2]string{
+		{"↑/↓ g/G", "scroll"},
+		{"tab", "headers / payload"},
+		{"c", "copy payload"},
+		{"ctrl+d", "delete"},
+		{"q / esc", "back"},
+	}},
+	{consumerDetails, "consumer", [][2]string{
+		{"c", "copy name"},
+		{"r / p", "refresh / pause"},
+		{"ctrl+d", "delete"},
+		{"q / esc", "back"},
+	}},
+}
+
+// helpPage is the page whose keys the help puts first: the current one, or for a form or dialog
+// the page it was opened from.
+func (m model) helpPage() page {
+	p := m.page
+	if from, ok := m.dialogFrom(); ok {
+		p = from
+	}
+	switch p {
+	case streamCreate:
+		return streamOverview
+	case messagePublish:
+		return streamDetails
+	}
+	return p
+}
+
+// renderHelpContent lays the sections out with the one of the current page first: side by side
+// when they fit, else in rows of three or two, else the current page with the subjects, else the
+// current page alone.
+func (m model) renderHelpContent(width, height, gap int) string {
+	current := m.helpPage()
+	title := func(s string, on bool) string {
+		tone := styles.ToneMuted
+		if on {
+			tone = styles.ToneAccent
+		}
+		return styles.Fg(tone).Bold(true).MarginBottom(1).Render(s)
 	}
 	keyStyle := styles.Fg(styles.ToneText).Bold(true).Width(11)
 	row := func(key, desc string) string {
 		return keyStyle.Render(key) + styles.Muted(desc)
 	}
 
-	navigation := lipgloss.JoinVertical(lipgloss.Left,
-		title("navigation"),
-		row("↑/k ↓/j", "move"),
-		row("g / G", "first / last"),
-		row("pgup/pgdn", "page"),
-		row("↓ at end", "older messages"),
-		row("enter", "open"),
-		row("tab/⇧tab", "next / previous"),
-		row("y / n", "answer a dialog"),
-		row("q", "back, quit"),
-		row("esc", "back, clear filter"),
-		row("ctrl+c", "quit"),
-	)
-
-	actions := lipgloss.JoinVertical(lipgloss.Left,
-		title("actions"),
-		row("space", "select"),
-		row("c", "copy payload or name"),
-		row("ctrl+n", "new stream, publish"),
-		row("ctrl+d", "delete"),
-		row("ctrl+p", "purge"),
-		row("r / p", "refresh / pause"),
-		row("f", "follow newest"),
-		row("#", "go to sequence"),
-		row("/", "filter"),
-		row("?", "help"),
-	)
+	var columns []string
+	for _, s := range helpSections {
+		lines := []string{title(s.title, s.page == current)}
+		for _, r := range s.rows {
+			lines = append(lines, row(r[0], r[1]))
+		}
+		column := lipgloss.JoinVertical(lipgloss.Left, lines...)
+		if s.page == current {
+			columns = append([]string{column}, columns...)
+		} else {
+			columns = append(columns, column)
+		}
+	}
 
 	wildcard := func(subject, desc string) string {
 		return lipgloss.NewStyle().Width(18).Render(styles.Render(styles.Subject(subject, styles.ToneText)...)) + styles.Muted(desc)
 	}
 	subjects := lipgloss.JoinVertical(lipgloss.Left,
-		title("subjects"),
+		title("subjects", false),
 		wildcard("orders.*.created", "one token"),
 		wildcard("orders.>", "the rest"),
 		"",
@@ -947,14 +1056,43 @@ func (m model) renderHelpContent(width, gap int) string {
 		styles.Muted("consumer filters take"),
 		styles.Muted("wildcards, publishing"),
 		styles.Muted("does not."),
+		"",
+		title("dialogs", false),
+		row("y / n", "yes / no"),
+		row("←/→ enter", "choose"),
+		row("ctrl+c", "quit"),
 	)
+	columns = append(columns, subjects)
 
 	spaced := lipgloss.NewStyle().MarginRight(gap)
-	columns := lipgloss.JoinHorizontal(lipgloss.Top, spaced.Render(navigation), spaced.Render(actions), subjects)
-	if lipgloss.Width(columns) > width {
-		columns = lipgloss.JoinVertical(lipgloss.Left,
-			lipgloss.JoinHorizontal(lipgloss.Top, spaced.Render(navigation), actions), "", subjects)
+	grid := func(perRow int, cols ...string) string {
+		var rows []string
+		for i := 0; i < len(cols); i += perRow {
+			line := slices.Clone(cols[i:min(i+perRow, len(cols))])
+			for j := range line[:len(line)-1] {
+				line[j] = spaced.Render(line[j])
+			}
+			if len(rows) > 0 {
+				rows = append(rows, "")
+			}
+			rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, line...))
+		}
+		return lipgloss.JoinVertical(lipgloss.Left, rows...)
 	}
+	// Room for the closing hint under the sections.
+	fits := func(s string) bool { return lipgloss.Width(s) <= width && lipgloss.Height(s) <= height-2 }
 
-	return lipgloss.JoinVertical(lipgloss.Center, columns, "", styles.Faint("press any key to close"))
+	body := columns[0]
+	for _, layout := range []string{
+		grid(len(columns), columns...),
+		grid(3, columns...),
+		grid(2, columns...),
+		grid(2, columns[0], subjects),
+	} {
+		if fits(layout) {
+			body = layout
+			break
+		}
+	}
+	return lipgloss.JoinVertical(lipgloss.Center, body, "", styles.Faint("press any key to close"))
 }

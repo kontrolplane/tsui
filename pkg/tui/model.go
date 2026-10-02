@@ -56,7 +56,7 @@ func (m model) resize() model {
 	// The viewport and inputs are built when their page opens, so only the open one needs fitting.
 	switch m.page {
 	case messageDetails:
-		m.state.messageDetails.resizePayload()
+		m.resizeMessageDetails()
 	case messagePublish:
 		p := &m.state.messagePublish
 		p.subject.SetWidth(leftContentWidth - 4)
