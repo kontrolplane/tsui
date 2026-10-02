@@ -657,47 +657,78 @@ func (m model) render() string {
 	return place(m.width, m.height, mainView)
 }
 
-// content renders what the frame holds: the page, or the error, loading or help in its place.
+// content renders what the frame holds: the page, with the help or an error over it, or the
+// loading notice in its place.
 func (m model) content() string {
-	var c string
-
+	page := m.pageView()
 	switch {
+	case m.showHelp:
+		return overlay(page, m.renderHelp())
 	case m.error != "":
-		c = m.ErrorView()
-	case m.loading:
-		c = m.LoadingView()
-	default:
-		switch m.page {
-		case streamOverview:
-			c = m.StreamOverviewView()
-		case streamDetails:
-			c = m.StreamDetailsView()
-		case streamCreate:
-			c = m.StreamCreateView()
-		case streamDelete:
-			c = m.StreamDeleteView()
-		case streamPurge:
-			c = m.StreamPurgeView()
-		case messageDetails:
-			c = m.MessageDetailsView()
-		case messagePublish:
-			c = m.MessagePublishView()
-		case messageDelete:
-			c = m.MessageDeleteView()
-		case consumerDetails:
-			c = m.ConsumerDetailsView()
-		case consumerDelete:
-			c = m.ConsumerDeleteView()
-		default:
-			c = errNoPageSelected
+		return overlay(page, m.ErrorView())
+	}
+	return page
+}
+
+// pageView renders the page, a confirmation over the page it was asked from.
+func (m model) pageView() string {
+	if m.loading {
+		return m.LoadingView()
+	}
+	if from, ok := m.dialogFrom(); ok {
+		return overlay(m.view(from), m.view(m.page))
+	}
+	return m.view(m.page)
+}
+
+// dialogFrom is the page a confirmation was asked from, which stays in sight behind it.
+func (m model) dialogFrom() (page, bool) {
+	switch m.page {
+	case streamDelete:
+		return streamOverview, true
+	case streamPurge:
+		if m.state.streamPurge.fromOverview {
+			return streamOverview, true
 		}
+		return streamDetails, true
+	case messageDelete:
+		if m.state.messageDelete.fromDetails {
+			return messageDetails, true
+		}
+		return streamDetails, true
+	case consumerDelete:
+		if m.state.consumerDelete.fromDetails {
+			return consumerDetails, true
+		}
+		return streamDetails, true
 	}
+	return 0, false
+}
 
-	if m.showHelp {
-		c = m.renderHelpOverlay()
+func (m model) view(p page) string {
+	switch p {
+	case streamOverview:
+		return m.StreamOverviewView()
+	case streamDetails:
+		return m.StreamDetailsView()
+	case streamCreate:
+		return m.StreamCreateView()
+	case streamDelete:
+		return m.StreamDeleteView()
+	case streamPurge:
+		return m.StreamPurgeView()
+	case messageDetails:
+		return m.MessageDetailsView()
+	case messagePublish:
+		return m.MessagePublishView()
+	case messageDelete:
+		return m.MessageDeleteView()
+	case consumerDetails:
+		return m.ConsumerDetailsView()
+	case consumerDelete:
+		return m.ConsumerDeleteView()
 	}
-
-	return c
+	return errNoPageSelected
 }
 
 func (m model) LoadingView() string {
@@ -888,20 +919,20 @@ func (m model) shortHelp() [][2]string {
 	return shortHelp[m.page]
 }
 
-// renderHelpOverlay draws the key reference in a card, as roomy as the content area allows.
-func (m model) renderHelpOverlay() string {
-	var overlay string
+// renderHelp draws the key reference in a card, as roomy as the content area allows.
+func (m model) renderHelp() string {
+	var card string
 	for _, fit := range []struct{ padY, padX, gap int }{{1, 4, 6}, {1, 2, 3}, {0, 2, 3}} {
-		overlay = lipgloss.NewStyle().
+		card = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(styles.P.RuleBold).
 			Padding(fit.padY, fit.padX).
-			Render(m.renderHelpContent(contentWidth-2-2*fit.padX, fit.gap))
-		if lipgloss.Width(overlay) <= contentWidth && lipgloss.Height(overlay) <= contentHeight {
+			Render(m.renderHelpContent(contentWidth-4-2*fit.padX, fit.gap))
+		if lipgloss.Width(card) <= contentWidth-2 && lipgloss.Height(card) <= contentHeight {
 			break
 		}
 	}
-	return lipgloss.Place(contentWidth, contentHeight, lipgloss.Center, lipgloss.Center, overlay)
+	return card
 }
 
 // renderHelpContent lays the help out in three columns, or the subjects under the other two when
