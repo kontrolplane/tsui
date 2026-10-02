@@ -115,3 +115,19 @@ func TestHelpPutsTheCurrentPageFirst(t *testing.T) {
 		t.Errorf("a dialog asked on a message should help with the message, page %v help %v", m.page, m.helpPage())
 	}
 }
+
+// Over a page with blank lines, as an empty table has, the card still sits in the middle.
+func TestOverlayCentresOverBlankLines(t *testing.T) {
+	defer setLayout(140, 25)
+	setLayout(minContentWidth+chromeWidth, minContentHeight+chromeHeight)
+	got := strings.Split(ansi.Strip(overlay("short", "XX")), "\n")
+	mid := (contentHeight - 1) / 2
+	if at := strings.Index(got[mid], "XX"); at != (contentWidth-4)/2+1 {
+		t.Errorf("card at column %d, want %d: %q", at, (contentWidth-4)/2+1, got[mid])
+	}
+	for i, line := range got {
+		if w := ansi.StringWidth(line); w != contentWidth {
+			t.Errorf("line %d is %d wide, want the content width %d", i, w, contentWidth)
+		}
+	}
+}
