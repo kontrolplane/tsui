@@ -23,8 +23,10 @@ func detailsViewportHeight() int { return contentHeight - 3 } // Account for hea
 type messageDetailsState struct {
 	message  tsui.Message
 	payload  payloadText
-	kind     string // what the payload is and its size, for the section header
-	viewport viewport.Model
+	kind     string         // what the payload is and its size, for the section header
+	viewport viewport.Model // the payload
+	fields   viewport.Model // the message and its headers, which can be more than fit
+	onFields bool           // the keys scroll the fields rather than the payload
 }
 
 func (m model) MessageDetailsSwitchPage() (model, tea.Cmd) {
@@ -34,24 +36,52 @@ func (m model) MessageDetailsSwitchPage() (model, tea.Cmd) {
 	d.kind = payloadKind(d.message.Data)
 	d.viewport = viewport.New(viewport.WithWidth(rightContentWidth), viewport.WithHeight(detailsViewportHeight()))
 	d.viewport.SetContent(d.payload.render(rightContentWidth))
+	d.fields = viewport.New(viewport.WithWidth(leftContentWidth), viewport.WithHeight(contentHeight))
+	d.fields.SetContent(m.messageFields())
+	d.onFields = false
 	return m.SwitchPage(messageDetails), nil
 }
 
-// resizePayload wraps the payload again at the current width, keeping the scroll position.
-func (d *messageDetailsState) resizePayload() {
+// resizeMessageDetails wraps the payload and the fields again at the current width, keeping the
+// scroll positions.
+func (m *model) resizeMessageDetails() {
+	d := &m.state.messageDetails
 	offset := d.viewport.YOffset()
 	d.viewport.SetWidth(rightContentWidth)
 	d.viewport.SetHeight(detailsViewportHeight())
 	d.viewport.SetContent(d.payload.render(rightContentWidth))
 	d.viewport.SetYOffset(offset)
+	offset = d.fields.YOffset()
+	d.fields.SetWidth(leftContentWidth)
+	d.fields.SetHeight(contentHeight)
+	d.fields.SetContent(m.messageFields())
+	d.fields.SetYOffset(offset)
+	if !d.fieldsOverflow() {
+		d.onFields = false
+	}
+}
+
+// fieldsOverflow reports whether the fields are more than the panel shows, so it scrolls.
+func (d messageDetailsState) fieldsOverflow() bool {
+	return d.fields.TotalLineCount() > d.fields.Height()
 }
 
 func (m model) MessageDetailsUpdate(msg tea.Msg) (model, tea.Cmd) {
 	var cmd tea.Cmd
-	message := m.state.messageDetails.message
+	d := &m.state.messageDetails
+	message := d.message
+	// The fields hold the age of the message, which changes while it is open.
+	d.fields.SetContent(m.messageFields())
+	scrolled := &d.viewport
+	if d.onFields {
+		scrolled = &d.fields
+	}
 
 	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		switch {
+		case key.Matches(keyMsg, m.keys.SwitchTab, m.keys.PrevTab):
+			d.onFields = !d.onFields && d.fieldsOverflow()
+			return m, nil
 		case key.Matches(keyMsg, m.keys.CopyToClipboard):
 			return m, commands.CopyToClipboard(string(message.Data))
 		case key.Matches(keyMsg, m.keys.Delete):
@@ -65,20 +95,23 @@ func (m model) MessageDetailsUpdate(msg tea.Msg) (model, tea.Cmd) {
 		case key.Matches(keyMsg, m.keys.Quit, m.keys.Back):
 			return m.StreamDetailsGoBack()
 		case key.Matches(keyMsg, m.keys.Top):
-			m.state.messageDetails.viewport.GotoTop()
+			scrolled.GotoTop()
 			return m, nil
 		case key.Matches(keyMsg, m.keys.Bottom):
-			m.state.messageDetails.viewport.GotoBottom()
+			scrolled.GotoBottom()
 			return m, nil
 		}
 	}
 
-	m.state.messageDetails.viewport, cmd = m.state.messageDetails.viewport.Update(msg)
+	*scrolled, cmd = scrolled.Update(msg)
 	return m, cmd
 }
 
-func (m model) MessageDetailsView() string {
-	msg := m.state.messageDetails.message
+// messageFields renders the left panel: where the message is stored, when and how large, and all
+// of its headers.
+func (m model) messageFields() string {
+	d := m.state.messageDetails
+	msg := d.message
 	stream := m.state.streamDetails.stream
 
 	// The last sequence and the age are left out rather than cut short when the panel is narrow.
@@ -87,8 +120,19 @@ func (m model) MessageDetailsView() string {
 	published := []styles.Span{styles.S(formatTime(msg.Time), styles.ToneBody)}
 	published = appendIfFits(published, !msg.Time.IsZero(), styles.S("  "+formatAgo(msg.Time), styles.ToneFaint))
 
+	title := styles.Fg(styles.ToneText).Bold(true)
+	if d.onFields {
+		title = styles.Fg(styles.ToneAccent).Bold(true)
+	}
+	meta := ""
+	if d.fieldsOverflow() {
+		meta = styles.Faint("tab scrolls")
+		if d.onFields {
+			meta = styles.Faint(fmt.Sprintf("%d%%", int(d.fields.ScrollPercent()*100)))
+		}
+	}
 	left := []string{
-		panelSection("message", true, leftContentWidth),
+		styles.SectionHeaderWith(title.Render("message"), meta, leftContentWidth),
 		panelRowSpans("stream", styles.S(msg.Stream, styles.ToneText)),
 		panelRowSpans("subject", styles.Subject(msg.Subject, styles.ToneText)...),
 		panelRowSpans("sequence", sequence...),
@@ -97,20 +141,31 @@ func (m model) MessageDetailsView() string {
 	}
 
 	left = append(left, "", styles.SectionHeaderWith(styles.Bold("headers"), styles.Faint(strconv.Itoa(len(msg.Header))), leftContentWidth))
-	left = append(left, headerRows(msg.Header, contentHeight-len(left))...)
+	left = append(left, headerRows(msg.Header, len(msg.Header))...)
+	return strings.Join(left, "\n")
+}
 
-	vp := m.state.messageDetails.viewport
-	kind := m.state.messageDetails.kind
+func (m model) MessageDetailsView() string {
+	d := m.state.messageDetails
+	fields := d.fields
+	fields.SetContent(m.messageFields())
+
+	vp := d.viewport
+	kind := d.kind
 	if vp.TotalLineCount() > vp.Height() {
 		kind += fmt.Sprintf(" · %d%%", int(vp.ScrollPercent()*100))
 	}
+	title := styles.Fg(styles.ToneText).Bold(true)
+	if !d.onFields && d.fieldsOverflow() {
+		title = styles.Fg(styles.ToneAccent).Bold(true)
+	}
 	right := lipgloss.JoinVertical(lipgloss.Left,
-		styles.SectionHeaderWith(styles.Bold("payload"), styles.Faint(kind), rightContentWidth),
+		styles.SectionHeaderWith(title.Render("payload"), styles.Faint(kind), rightContentWidth),
 		"",
 		vp.View(),
 	)
 
-	return splitPanels(lipgloss.JoinVertical(lipgloss.Left, left...), right)
+	return splitPanels(fields.View(), right)
 }
 
 // appendIfFits appends extra to a panel value when ok and the value still fits the panel.
@@ -126,7 +181,7 @@ func appendIfFits(value []styles.Span, ok bool, extra styles.Span) []styles.Span
 }
 
 // headerRows lists the headers of a message on one line each, in at most rows lines, with the ones
-// past them counted. Labels take the width the longest name needs, up to half the panel, so long
+// past them counted. The details view scrolls, so it lists them all. Labels take the width the longest name needs, up to half the panel, so long
 // names that share a prefix stay apart.
 func headerRows(header nats.Header, rows int) []string {
 	if len(header) == 0 {

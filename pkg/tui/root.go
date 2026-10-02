@@ -904,6 +904,16 @@ func (m model) shortHelp() [][2]string {
 	switch m.page {
 	case streamDetails:
 		return detailsTabHelp[m.state.streamDetails.tab]
+	case messageDetails:
+		h := shortHelp[messageDetails]
+		if d := m.state.messageDetails; d.fieldsOverflow() {
+			panel := "headers"
+			if d.onFields {
+				panel = "payload"
+			}
+			h = slices.Insert(slices.Clone(h), 1, [2]string{"tab", panel})
+		}
+		return h
 	case streamPurge:
 		p := m.state.streamPurge
 		switch {

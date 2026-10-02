@@ -781,3 +781,36 @@ func TestLeavingAPageWhileItLoads(t *testing.T) {
 		t.Error("expected the stream list to load in the background")
 	}
 }
+
+// A message with more headers than fit lists them all, tab gives the keys to them.
+func TestMessageDetailsHeadersScroll(t *testing.T) {
+	m := detailsModel(t)
+	header := nats.Header{}
+	for i := range 60 {
+		header.Set(fmt.Sprintf("X-Header-%02d", i), "value")
+	}
+	m.state.streamDetails.messages[0].Header = header
+	m = m.updateMessagesTable()
+	m, _ = update(t, m, press("enter"))
+	d := m.state.messageDetails
+	if m.page != messageDetails || !d.fieldsOverflow() {
+		t.Fatalf("page %v, overflow %v", m.page, d.fieldsOverflow())
+	}
+	if view := ansi.Strip(m.render()); strings.Contains(view, "more headers") || !strings.Contains(view, "tab scrolls") {
+		t.Error("expected every header listed, with a hint that tab scrolls them")
+	}
+	m, _ = update(t, m, press("tab"), press("G"))
+	if !m.state.messageDetails.onFields || m.state.messageDetails.fields.YOffset() == 0 {
+		t.Errorf("tab should give the headers the keys: on fields %v, offset %d", m.state.messageDetails.onFields, m.state.messageDetails.fields.YOffset())
+	}
+	if !strings.Contains(ansi.Strip(m.render()), "X-Header-59") {
+		t.Error("the last header should be on screen once scrolled down")
+	}
+	if m.state.messageDetails.viewport.YOffset() != 0 {
+		t.Error("the payload should not scroll while the headers have the keys")
+	}
+	m, _ = update(t, m, press("tab"))
+	if m.state.messageDetails.onFields {
+		t.Error("tab again goes back to the payload")
+	}
+}
