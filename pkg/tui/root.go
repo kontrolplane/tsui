@@ -88,6 +88,8 @@ func (m model) textInputActive() bool {
 	case streamPurge:
 		p := m.state.streamPurge
 		return p.focus == purgeFocusSubject || p.step == purgeStepType
+	case messageRedrive:
+		return m.state.messageRedrive.focus == redriveFocusSubject
 	}
 	return false
 }
@@ -96,7 +98,7 @@ func (m model) textInputActive() bool {
 // results loaded for that stream still belong on screen.
 func (m model) inStream() bool {
 	switch m.page {
-	case streamDetails, messageDetails, messagePublish, messageDelete, consumerDetails, consumerDelete:
+	case streamDetails, messageDetails, messagePublish, messageDelete, messageRedrive, consumerDetails, consumerDelete:
 		return true
 	case streamPurge:
 		return !m.state.streamPurge.fromOverview
@@ -547,6 +549,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.finish(model.StreamDetailsGoBack, done, failed, msg.Err)
 
+	case messages.MessagesRedrivenMsg:
+		d := &m.state.streamDetails
+		r := m.state.messageRedrive
+		res := msg.Result
+		for _, seq := range slices.Concat(res.Redriven, res.Duplicates) {
+			delete(d.selectedMessages, seq)
+		}
+		d.messages = deleteNames(d.messages, res.Deleted, func(msg tsui.Message) uint64 { return msg.Sequence })
+		m = m.updateMessagesTable()
+		back := model.messageRedriveGoBack
+		if len(res.Deleted) > 0 {
+			// The message open in the details is gone from the stream.
+			back = model.StreamDetailsGoBack
+		}
+		done, failed := redriveResult(len(r.sequences), res)
+		if msg.Err == nil && len(res.Duplicates) > 0 {
+			m.busy, m.loading = false, false
+			m, cmd = back(m)
+			return m.withStatus(cmd, done, styles.ToneWarning)
+		}
+		return m.finish(back, done, failed, msg.Err)
+
 	case messages.ConsumersDeletedMsg:
 		d := &m.state.streamDetails
 		for _, name := range msg.Names {
@@ -602,6 +626,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m, cmd = m.MessageDeleteUpdate(msg)
 	case consumerDetails:
 		m, cmd = m.ConsumerDetailsUpdate(msg)
+	case messageRedrive:
+		m, cmd = m.MessageRedriveUpdate(msg)
 	case consumerDelete:
 		m, cmd = m.ConsumerDeleteUpdate(msg)
 	}
@@ -696,6 +722,11 @@ func (m model) dialogFrom() (page, bool) {
 			return messageDetails, true
 		}
 		return streamDetails, true
+	case messageRedrive:
+		if m.state.messageRedrive.fromDetails {
+			return messageDetails, true
+		}
+		return streamDetails, true
 	case consumerDelete:
 		if m.state.consumerDelete.fromDetails {
 			return consumerDetails, true
@@ -725,6 +756,8 @@ func (m model) view(p page) string {
 		return m.MessageDeleteView()
 	case consumerDetails:
 		return m.ConsumerDetailsView()
+	case messageRedrive:
+		return m.MessageRedriveView()
 	case consumerDelete:
 		return m.ConsumerDeleteView()
 	}
@@ -834,8 +867,12 @@ func (m model) renderFooterLeft(width int) string {
 }
 
 func (m model) renderSelectionInfo(count int, itemType string) string {
+	pairs := [][2]string{{"ctrl+d", "delete"}, {"q", "clear"}}
+	if itemType == "message" {
+		pairs = slices.Insert(pairs, 0, [2]string{"ctrl+r", "redrive"})
+	}
 	return styles.Render(styles.S("● ", styles.ToneAccent), styles.B(plural(count, itemType)+" selected", styles.ToneText)) +
-		"    " + hints([2]string{"ctrl+d", "delete"}, [2]string{"q", "clear"})
+		"    " + hints(pairs...)
 }
 
 func (m model) renderFilterBar(inputView string) string {
@@ -876,15 +913,16 @@ var shortHelp = map[page][][2]string{
 	streamOverview:  {{"enter", "open"}, {"ctrl+n", "new stream"}, {"ctrl+p", "purge"}, {"ctrl+d", "delete"}, {"/", "filter"}, {"p", "pause"}, {"?", "help"}, {"q", "quit"}},
 	streamCreate:    {{"enter", "next"}, {"shift+tab", "previous"}, {"esc", "cancel"}},
 	streamDelete:    {{"enter", "delete"}, {"esc", "cancel"}},
-	messageDetails:  {{"↑/↓", "scroll"}, {"g/G", "top/bottom"}, {"c", "copy payload"}, {"ctrl+d", "delete"}, {"?", "help"}, {"q", "back"}},
+	messageDetails:  {{"↑/↓", "scroll"}, {"g/G", "top/bottom"}, {"c", "copy payload"}, {"ctrl+r", "redrive"}, {"ctrl+d", "delete"}, {"?", "help"}, {"q", "back"}},
 	messagePublish:  {{"tab", "next field"}, {"ctrl+s", "publish"}, {"esc", "cancel"}},
 	messageDelete:   confirmHelp,
+	messageRedrive:  {{"tab", "next field"}, {"space", "toggle delete"}, {"y/n", "yes/no"}, {"enter", "confirm"}, {"esc", "cancel"}},
 	consumerDetails: {{"c", "copy name"}, {"r", "refresh"}, {"p", "pause"}, {"ctrl+d", "delete"}, {"?", "help"}, {"q", "back"}},
 	consumerDelete:  confirmHelp,
 }
 
 var detailsTabHelp = map[detailsTab][][2]string{
-	tabMessages:  {{"enter", "open"}, {"space", "select"}, {"ctrl+n", "publish"}, {"ctrl+d", "delete"}, {"#", "go to"}, {"f", "follow"}, {"p", "pause"}, {"c", "copy payload"}, {"tab", "next tab"}, {"/", "filter"}, {"?", "help"}, {"q", "back"}},
+	tabMessages:  {{"enter", "open"}, {"space", "select"}, {"ctrl+n", "publish"}, {"ctrl+d", "delete"}, {"#", "go to"}, {"f", "follow"}, {"p", "pause"}, {"c", "copy payload"}, {"ctrl+r", "redrive"}, {"tab", "next tab"}, {"/", "filter"}, {"?", "help"}, {"q", "back"}},
 	tabConsumers: {{"enter", "open"}, {"space", "select"}, {"ctrl+d", "delete"}, {"c", "copy name"}, {"p", "pause"}, {"tab", "next tab"}, {"/", "filter"}, {"?", "help"}, {"q", "back"}},
 	tabSubjects:  {{"enter", "messages"}, {"ctrl+p", "purge"}, {"c", "copy subject"}, {"p", "pause"}, {"tab", "next tab"}, {"/", "filter"}, {"?", "help"}, {"q", "back"}},
 }
@@ -975,6 +1013,7 @@ var helpSections = []helpSection{
 		{"f", "follow newest"},
 		{"#", "go to sequence"},
 		{"ctrl+n", "publish"},
+		{"ctrl+r", "redrive"},
 		{"ctrl+d", "delete"},
 		{"ctrl+p", "purge a subject"},
 		{"c", "copy"},
@@ -986,6 +1025,7 @@ var helpSections = []helpSection{
 		{"↑/↓ g/G", "scroll"},
 		{"tab", "headers / payload"},
 		{"c", "copy payload"},
+		{"ctrl+r", "redrive"},
 		{"ctrl+d", "delete"},
 		{"q / esc", "back"},
 	}},

@@ -104,6 +104,13 @@ type MessagesDeletedMsg struct {
 	Err       error
 }
 
+// MessagesRedrivenMsg reports a redrive of messages from Stream; Err is the failure that stopped it.
+type MessagesRedrivenMsg struct {
+	Stream string
+	Result tsui.RedriveResult
+	Err    error
+}
+
 type ConsumersDeletedMsg struct {
 	Stream string
 	Names  []string

@@ -41,6 +41,7 @@ The header shows the server you are connected to, the round trip time and the Je
 - `ctrl+n`: create stream/publish message
 - `ctrl+d`: delete stream/message/consumer
 - `ctrl+p`: purge stream, on the subjects tab the subject under the cursor
+- `ctrl+r`: redrive the selected messages, or the one under the cursor, to another subject
 - `ctrl+s`: publish (in the publish view)
 - `y`, `n`: answer a yes/no dialog
 - `c`: copy message payload/consumer name/subject
@@ -56,6 +57,8 @@ The header shows the server you are connected to, the round trip time and the Je
 The messages tab starts with the newest 100 messages of a stream. Moving down past the last row loads the next older page, until the start of the stream. Messages are read by sequence, so browsing them never affects a consumer. A filter that names subjects of the stream, like `orders.eu.created` or `orders.*.created`, loads the messages on them from the server once applied with `enter`, older ones included, and the consumers tab shows the consumers receiving them; any other filter searches the loaded messages. A single word only names a subject when the stream lists it. Opening a subject from the subjects tab does the same.
 
 While following, which is on by default, the cursor on the top row stays on the newest message as new ones arrive; off, the cursor stays on its message. Moving the cursor off the top row stops following too, the frame says `follow off` either way, and `f` jumps back to the newest message. Pausing freezes what is on screen, the header says so, and the frame shows how long ago it was refreshed.
+
+Redriving publishes messages again, oldest first, with their headers and payload, to the subject you give, which lands them in whichever stream listens there, for example from a dead letter stream back to the stream it came from. Left empty, each message goes to the subject it is stored on. The dialog shows which stream will store them before you confirm. `Nats-Expected-*` and `Nats-Rollup` headers are dropped so the publish isn't refused and doesn't purge the target. With `delete once stored` ticked, each message is removed from its stream after the target acknowledges it. A message the target reports as a duplicate of a `Nats-Msg-Id` it already holds is kept. The first failure stops the redrive, so the messages after it keep their order.
 
 Deleting a stream, or purging all of its messages, asks to type the stream name first. Pressing `esc` on a form with input asks again before discarding it.
 

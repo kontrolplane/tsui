@@ -322,6 +322,8 @@ func (m model) breadcrumb() []styles.Span {
 		trail = []string{"streams", stream, "publish"}
 	case messageDelete:
 		trail = []string{"streams", stream, "messages", "delete"}
+	case messageRedrive:
+		trail = []string{"streams", stream, "messages", "redrive"}
 	case consumerDetails:
 		trail = []string{"streams", stream, "consumers", m.state.consumerDetails.consumer.Name}
 	case consumerDelete:

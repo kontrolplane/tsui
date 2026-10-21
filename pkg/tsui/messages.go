@@ -383,3 +383,68 @@ func DeleteMessages(ctx context.Context, js jetstream.JetStream, name string, se
 		return nil
 	})
 }
+
+// RedriveResult reports what a redrive did with each source sequence.
+type RedriveResult struct {
+	Redriven   []uint64 // published and stored by a stream
+	Duplicates []uint64 // the target already held a message with the same Nats-Msg-Id
+	Deleted    []uint64 // removed from the source stream after being redriven
+	Streams    []string // the streams that stored them, in the order first seen
+}
+
+// redriveDropped are headers the server acts on that would make the republished message fail or
+// change the target: expectations about the source stream, and rollups that purge the target.
+func redriveDropped(name string) bool {
+	return strings.HasPrefix(name, "Nats-Expected-") || name == "Nats-Rollup"
+}
+
+// RedriveMessages publishes the messages at seqs again, oldest first, with their headers and
+// payload, to subject or, when it is empty, to the subject each was stored on. With remove set,
+// each message the target stored is deleted from the source stream. A message the target already
+// held as a duplicate is kept, as nothing new was stored for it. The first failure stops the
+// redrive, so the messages after it keep their order for a retry.
+func RedriveMessages(ctx context.Context, js jetstream.JetStream, name string, seqs []uint64, subject string, remove bool) (RedriveResult, error) {
+	var res RedriveResult
+	s, err := js.Stream(ctx, name)
+	if err != nil {
+		return res, err
+	}
+	seqs = slices.Clone(seqs)
+	slices.Sort(seqs)
+	for _, seq := range seqs {
+		raw, err := s.GetMsg(ctx, seq)
+		if err != nil {
+			return res, fmt.Errorf("reading message %d: %w", seq, err)
+		}
+		msg := toMessage(name, raw)
+		target := subject
+		if target == "" {
+			target = msg.Subject
+		}
+		header := nats.Header{}
+		for k, v := range msg.Header {
+			if !redriveDropped(k) {
+				header[k] = v
+			}
+		}
+		ack, err := PublishMessage(ctx, js, target, header, msg.Data)
+		if err != nil {
+			return res, fmt.Errorf("redriving message %d: %w", seq, err)
+		}
+		if !slices.Contains(res.Streams, ack.Stream) {
+			res.Streams = append(res.Streams, ack.Stream)
+		}
+		if ack.Duplicate {
+			res.Duplicates = append(res.Duplicates, seq)
+			continue
+		}
+		res.Redriven = append(res.Redriven, seq)
+		if remove {
+			if err := s.DeleteMsg(ctx, seq); err != nil {
+				return res, fmt.Errorf("deleting message %d after redriving it: %w", seq, err)
+			}
+			res.Deleted = append(res.Deleted, seq)
+		}
+	}
+	return res, nil
+}
