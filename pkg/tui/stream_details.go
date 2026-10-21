@@ -660,6 +660,10 @@ func (m model) StreamDetailsUpdate(msg tea.Msg) (model, tea.Cmd) {
 				return m.ConsumerDeleteSwitchPage()
 			}
 		}
+	case d.tab == tabMessages && key.Matches(keyMsg, m.keys.Redrive):
+		if seqs := m.getSelectedMessages(); len(seqs) > 0 {
+			return m.MessageRedriveSwitchPage(seqs, m.redriveSubjects(seqs), false)
+		}
 	case key.Matches(keyMsg, m.keys.Purge):
 		m.state.streamPurge.stream = stream
 		m.state.streamPurge.fromOverview = false

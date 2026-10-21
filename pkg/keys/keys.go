@@ -17,6 +17,7 @@ type KeyMap struct {
 	Delete          key.Binding
 	CopyToClipboard key.Binding
 	Purge           key.Binding
+	Redrive         key.Binding
 	Refresh         key.Binding
 	Pause           key.Binding
 	Follow          key.Binding
@@ -81,6 +82,10 @@ var Keys = KeyMap{
 	Purge: key.NewBinding(
 		key.WithKeys("ctrl+p"),
 		key.WithHelp("ctrl+p", "purge"),
+	),
+	Redrive: key.NewBinding(
+		key.WithKeys("ctrl+r"),
+		key.WithHelp("ctrl+r", "redrive"),
 	),
 	Refresh: key.NewBinding(
 		key.WithKeys("r"),

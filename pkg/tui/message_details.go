@@ -92,6 +92,8 @@ func (m model) MessageDetailsUpdate(msg tea.Msg) (model, tea.Cmd) {
 			m.state.messageDelete.sequences = []uint64{message.Sequence}
 			m.state.messageDelete.fromDetails = true
 			return m.MessageDeleteSwitchPage()
+		case key.Matches(keyMsg, m.keys.Redrive):
+			return m.MessageRedriveSwitchPage([]uint64{message.Sequence}, []string{message.Subject}, true)
 		case key.Matches(keyMsg, m.keys.Quit, m.keys.Back):
 			return m.StreamDetailsGoBack()
 		case key.Matches(keyMsg, m.keys.Top):

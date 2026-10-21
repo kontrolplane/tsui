@@ -73,6 +73,8 @@ func (m model) resize() model {
 	case streamPurge:
 		c := &m.state.streamPurge.confirm
 		c.input.SetWidth(typedConfirmWidth(c.want))
+	case messageRedrive:
+		m.state.messageRedrive.subjectInput.SetWidth(redriveInputWidth())
 	}
 	return m
 }
@@ -132,6 +134,7 @@ type state struct {
 	messageDetails  messageDetailsState
 	messagePublish  messagePublishState
 	messageDelete   messageDeleteState
+	messageRedrive  messageRedriveState
 	consumerDetails consumerDetailsState
 	consumerDelete  consumerDeleteState
 }

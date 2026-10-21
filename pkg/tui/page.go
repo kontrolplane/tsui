@@ -13,6 +13,7 @@ const (
 	messageDetails
 	messagePublish
 	messageDelete
+	messageRedrive
 	consumerDetails
 	consumerDelete
 )

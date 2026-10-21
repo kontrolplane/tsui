@@ -196,6 +196,18 @@ func DeleteMessages(ctx context.Context, js jetstream.JetStream, stream string, 
 	})
 }
 
+// RedriveMessages republishes the messages at seqs to subject, or to their own subjects when it is
+// empty, deleting them from stream once stored when remove is set. The messages go one at a time to
+// keep their order, so the timeout grows with their number.
+func RedriveMessages(ctx context.Context, js jetstream.JetStream, stream string, seqs []uint64, subject string, remove bool) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(ctx, requestTimeout+time.Duration(len(seqs))*time.Second)
+		defer cancel()
+		res, err := tsui.RedriveMessages(ctx, js, stream, seqs, subject, remove)
+		return messages.MessagesRedrivenMsg{Stream: stream, Result: res, Err: err}
+	}
+}
+
 func DeleteConsumers(ctx context.Context, js jetstream.JetStream, stream string, names []string) tea.Cmd {
 	return request(ctx, func(ctx context.Context) tea.Msg {
 		deleted, err := tsui.DeleteConsumers(ctx, js, stream, names)
