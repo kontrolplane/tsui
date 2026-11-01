@@ -15,10 +15,10 @@ ARG COMMIT=none
 ARG DATE=unknown
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE}" \
-    -o /out/tsui .
+    -o /out/relay .
 
 FROM alpine:3.24
-COPY --from=build /out/tsui /usr/local/bin/tsui
-RUN adduser -D -H -u 10001 tsui
-USER tsui
-ENTRYPOINT ["/usr/local/bin/tsui"]
+COPY --from=build /out/relay /usr/local/bin/relay
+RUN adduser -D -H -u 10001 relay
+USER relay
+ENTRYPOINT ["/usr/local/bin/relay"]

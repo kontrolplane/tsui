@@ -12,14 +12,14 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/nats-io/nats.go"
 
-	"github.com/kontrolplane/tsui/pkg/client"
-	tui "github.com/kontrolplane/tsui/pkg/tui"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/client"
+	tui "github.com/kontrolplane/relay/pkg/tui"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 var (
 	projectName = "kontrolplane"
-	programName = "tsui"
+	programName = "relay"
 )
 
 func fail(format string, args ...any) {

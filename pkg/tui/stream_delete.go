@@ -6,8 +6,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 type streamDeleteState struct {

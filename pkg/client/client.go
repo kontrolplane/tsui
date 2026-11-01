@@ -41,7 +41,7 @@ type Info struct {
 	URL     string
 }
 
-// contextSettings mirrors the subset of the nats cli context file format that tsui understands.
+// contextSettings mirrors the subset of the nats cli context file format that relay understands.
 // docs: https://github.com/nats-io/jsm.go/blob/main/natscontext/context.go
 type contextSettings struct {
 	URL         string `json:"url"`

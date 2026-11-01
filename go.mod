@@ -1,4 +1,4 @@
-module github.com/kontrolplane/tsui
+module github.com/kontrolplane/relay
 
 go 1.26.0
 

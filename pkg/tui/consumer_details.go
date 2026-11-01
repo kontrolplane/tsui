@@ -11,13 +11,13 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 type consumerDetailsState struct {
-	consumer tsui.Consumer
+	consumer relay.Consumer
 }
 
 func (m model) ConsumerDetailsSwitchPage() (model, tea.Cmd) {
@@ -78,7 +78,7 @@ func (m model) ConsumerDetailsUpdate(msg tea.Msg) (model, tea.Cmd) {
 
 // consumerStatus tells whether a consumer is being read: a push consumer while a client is bound
 // to it, a pull consumer while a client waits on it or was served in the last minute.
-func consumerStatus(c tsui.Consumer) cell {
+func consumerStatus(c relay.Consumer) cell {
 	switch {
 	case c.Paused:
 		return text("⏸ paused", styles.ToneWarning)

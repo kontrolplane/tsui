@@ -3,7 +3,7 @@ package main
 import (
 	"runtime/debug"
 
-	"github.com/kontrolplane/tsui/cmd"
+	"github.com/kontrolplane/relay/cmd"
 )
 
 var (

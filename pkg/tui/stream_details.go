@@ -14,9 +14,9 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 type detailsTab int
@@ -29,11 +29,11 @@ const (
 )
 
 type streamDetailsState struct {
-	stream          tsui.Stream
+	stream          relay.Stream
 	attributesTable string
 	tab             detailsTab
 
-	messages         []tsui.Message
+	messages         []relay.Message
 	messagesLoaded   bool
 	messagesStale    bool // the last reload failed, the next refresh retries it
 	messagesTable    dataTable
@@ -47,13 +47,13 @@ type streamDetailsState struct {
 	autoPages        int  // pages loaded on their own towards fillTo
 	follow           bool // the top row stays on the newest message as new ones arrive
 
-	consumers         []tsui.Consumer
+	consumers         []relay.Consumer
 	consumersLoaded   bool
 	consumersTable    dataTable
 	selectedConsumer  int
 	selectedConsumers map[string]bool // consumer names selected for bulk operations
 
-	subjects        []tsui.SubjectCount
+	subjects        []relay.SubjectCount
 	subjectsLoaded  bool
 	subjectsTable   dataTable
 	selectedSubject int
@@ -130,7 +130,7 @@ type attribute struct {
 
 func sep() styles.Span { return styles.S(" · ", styles.ToneFaint) }
 
-func renderAttributesTable(s tsui.Stream) string {
+func renderAttributesTable(s relay.Stream) string {
 	storage := cell{styles.S(s.Storage, styles.ToneBody), sep(), styles.S(fmt.Sprintf("R%d", max(s.Replicas, 1)), styles.ToneBody)}
 	if s.Replicas > 1 && s.Leader != "" {
 		storage = append(storage, sep(), styles.S("leader ", styles.ToneFaint), styles.S(s.Leader, styles.ToneBody))
@@ -273,15 +273,15 @@ func (m model) focusDetailsTab() model {
 
 func (m model) loadSubjects() tea.Cmd {
 	d := m.state.streamDetails
-	if d.stream.NumSubjects > tsui.MaxListedSubjects {
+	if d.stream.NumSubjects > relay.MaxListedSubjects {
 		return nil
 	}
 	return commands.LoadSubjects(m.context, m.js, d.stream.Name)
 }
 
-func messageMatches(msg tsui.Message, filter string) bool {
-	if tsui.HasWildcard(filter) {
-		return tsui.SubjectMatches(filter, msg.Subject)
+func messageMatches(msg relay.Message, filter string) bool {
+	if relay.HasWildcard(filter) {
+		return relay.SubjectMatches(filter, msg.Subject)
 	}
 	filter = strings.ToLower(filter)
 	return strings.Contains(strings.ToLower(msg.Subject), filter) ||
@@ -292,12 +292,12 @@ func messageMatches(msg tsui.Message, filter string) bool {
 // consumerMatches reports whether the name or a filter subject of a consumer contains filter, or,
 // for a filter naming subjects, whether the consumer receives messages on subjects it matches. A
 // consumer without filter subjects receives them all.
-func consumerMatches(c tsui.Consumer, filter string, subject bool) bool {
+func consumerMatches(c relay.Consumer, filter string, subject bool) bool {
 	if subject {
 		if len(c.FilterSubjects) == 0 {
 			return true
 		}
-		if slices.ContainsFunc(c.FilterSubjects, func(f string) bool { return tsui.SubjectsOverlap(f, filter) }) {
+		if slices.ContainsFunc(c.FilterSubjects, func(f string) bool { return relay.SubjectsOverlap(f, filter) }) {
 			return true
 		}
 		return strings.Contains(strings.ToLower(c.Name), strings.ToLower(filter))
@@ -310,26 +310,26 @@ func consumerMatches(c tsui.Consumer, filter string, subject bool) bool {
 }
 
 func subjectFilterMatches(subject, filter string) bool {
-	if tsui.HasWildcard(filter) {
-		return tsui.SubjectMatches(filter, subject)
+	if relay.HasWildcard(filter) {
+		return relay.SubjectMatches(filter, subject)
 	}
 	return strings.Contains(strings.ToLower(subject), strings.ToLower(filter))
 }
 
-func (m model) getFilteredMessages() []tsui.Message {
+func (m model) getFilteredMessages() []relay.Message {
 	d := m.state.streamDetails
 	return filterBy(d.messages, d.filterText, messageMatches)
 }
 
-func (m model) getFilteredSubjects() []tsui.SubjectCount {
+func (m model) getFilteredSubjects() []relay.SubjectCount {
 	d := m.state.streamDetails
-	return filterBy(d.subjects, d.filterText, func(s tsui.SubjectCount, f string) bool { return subjectFilterMatches(s.Subject, f) })
+	return filterBy(d.subjects, d.filterText, func(s relay.SubjectCount, f string) bool { return subjectFilterMatches(s.Subject, f) })
 }
 
-func (m model) getFilteredConsumers() []tsui.Consumer {
+func (m model) getFilteredConsumers() []relay.Consumer {
 	d := m.state.streamDetails
 	subject := m.subjectFilter(d.filterText)
-	return filterBy(d.consumers, d.filterText, func(c tsui.Consumer, f string) bool { return consumerMatches(c, f, subject) })
+	return filterBy(d.consumers, d.filterText, func(c relay.Consumer, f string) bool { return consumerMatches(c, f, subject) })
 }
 
 // setDetailsFilter applies filter to every tab and moves their cursors back to the top.
@@ -381,7 +381,7 @@ func payloadPreview(data []byte) cell {
 
 // consumerDelivery shows where a consumer's delivered sequence sits in the stream. Position is
 // used rather than a message count because a filtered consumer never sees the whole stream.
-func consumerDelivery(c tsui.Consumer, stream tsui.Stream) cell {
+func consumerDelivery(c relay.Consumer, stream relay.Stream) cell {
 	switch {
 	case c.Paused:
 		return text("⏸ paused", styles.ToneWarning)
@@ -403,7 +403,7 @@ func sequencePosition(seq, first, last uint64) float64 {
 	return min(float64(seq-first+1)/float64(last-first+1), 1)
 }
 
-func consumerMode(c tsui.Consumer) cell {
+func consumerMode(c relay.Consumer) cell {
 	if !c.Push {
 		return text("pull", styles.ToneBody)
 	}
@@ -413,7 +413,7 @@ func consumerMode(c tsui.Consumer) cell {
 	return cell{styles.S("push", styles.ToneBody), styles.S(" unbound", styles.ToneWarning)}
 }
 
-func consumerFilter(c tsui.Consumer) cell {
+func consumerFilter(c relay.Consumer) cell {
 	if len(c.FilterSubjects) == 0 {
 		return cell{styles.B(">", styles.ToneAccent), styles.S(" all", styles.ToneFaint)}
 	}
@@ -469,7 +469,7 @@ func (m model) updateSubjectsTable() model {
 		})
 	}
 	switch {
-	case d.stream.NumSubjects > tsui.MaxListedSubjects:
+	case d.stream.NumSubjects > relay.MaxListedSubjects:
 		d.subjectsTable.empty = fmt.Sprintf("%s holds %s subjects, too many to list", d.stream.Name, formatCount(d.stream.NumSubjects))
 	case !d.subjectsLoaded:
 		d.subjectsTable.empty = "loading subjects…"
@@ -486,26 +486,26 @@ func (m model) updateDetailsTables() model {
 	return m.updateMessagesTable().updateConsumersTable().updateSubjectsTable()
 }
 
-func (m model) currentSubject() (tsui.SubjectCount, bool) {
+func (m model) currentSubject() (relay.SubjectCount, bool) {
 	subjects := m.getFilteredSubjects()
 	if len(subjects) == 0 {
-		return tsui.SubjectCount{}, false
+		return relay.SubjectCount{}, false
 	}
 	return subjects[m.state.streamDetails.selectedSubject], true
 }
 
-func (m model) currentMessage() (tsui.Message, bool) {
+func (m model) currentMessage() (relay.Message, bool) {
 	msgs := m.getFilteredMessages()
 	if len(msgs) == 0 {
-		return tsui.Message{}, false
+		return relay.Message{}, false
 	}
 	return msgs[m.state.streamDetails.selectedMessage], true
 }
 
-func (m model) currentConsumer() (tsui.Consumer, bool) {
+func (m model) currentConsumer() (relay.Consumer, bool) {
 	consumers := m.getFilteredConsumers()
 	if len(consumers) == 0 {
-		return tsui.Consumer{}, false
+		return relay.Consumer{}, false
 	}
 	return consumers[m.state.streamDetails.selectedConsumer], true
 }
@@ -513,13 +513,13 @@ func (m model) currentConsumer() (tsui.Consumer, bool) {
 // getSelectedMessages returns the selected sequences, or the message under the cursor when nothing is selected.
 func (m model) getSelectedMessages() []uint64 {
 	d := m.state.streamDetails
-	return selectedOr(d.selectedMessages, d.messages, func(msg tsui.Message) uint64 { return msg.Sequence }, m.currentMessage)
+	return selectedOr(d.selectedMessages, d.messages, func(msg relay.Message) uint64 { return msg.Sequence }, m.currentMessage)
 }
 
 // getSelectedConsumers returns the selected consumers, or the consumer under the cursor when nothing is selected.
 func (m model) getSelectedConsumers() []string {
 	d := m.state.streamDetails
-	return selectedOr(d.selectedConsumers, d.consumers, func(c tsui.Consumer) string { return c.Name }, m.currentConsumer)
+	return selectedOr(d.selectedConsumers, d.consumers, func(c relay.Consumer) string { return c.Name }, m.currentConsumer)
 }
 
 func (m model) toggleDetailsSelection() model {
@@ -697,7 +697,7 @@ func (m model) StreamDetailsUpdate(msg tea.Msg) (model, tea.Cmd) {
 			if back {
 				d := &m.state.streamDetails
 				d.tab = tabSubjects
-				d.selectedSubject = follow(m.getFilteredSubjects(), 0, func(s tsui.SubjectCount) bool { return s.Subject == subject })
+				d.selectedSubject = follow(m.getFilteredSubjects(), 0, func(s relay.SubjectCount) bool { return s.Subject == subject })
 				m = m.focusDetailsTab().updateSubjectsTable()
 			}
 			return m.setMessageSource("")
@@ -749,7 +749,7 @@ func (m model) renderTabBar() string {
 	// Until the subjects are listed, or when there are too many to list, the stream counts them,
 	// though not the ones a filter shows.
 	subjects, subjectsKnown := len(d.subjectsTable.rows), d.subjectsLoaded
-	if !d.subjectsLoaded || d.stream.NumSubjects > tsui.MaxListedSubjects {
+	if !d.subjectsLoaded || d.stream.NumSubjects > relay.MaxListedSubjects {
 		subjects, subjectsKnown = int(d.stream.NumSubjects), d.attributesTable != "" && d.filterText == ""
 	}
 	tabs := tab(tabMessages, "messages", len(d.messagesTable.rows), d.messagesLoaded) + " " +

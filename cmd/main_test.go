@@ -9,20 +9,20 @@ import (
 )
 
 func TestHelpGoesToStdout(t *testing.T) {
-	if os.Getenv("TSUI_HELP_TEST") == "1" {
+	if os.Getenv("RELAY_HELP_TEST") == "1" {
 		os.Args = []string{programName, "--help"}
 		Execute("dev", "none", "unknown")
 		return
 	}
 	cmd := exec.Command(os.Args[0], "-test.run=^TestHelpGoesToStdout$")
-	cmd.Env = append(os.Environ(), "TSUI_HELP_TEST=1", "NATS_PASSWORD=hunter2")
+	cmd.Env = append(os.Environ(), "RELAY_HELP_TEST=1", "NATS_PASSWORD=hunter2")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("expected --help to exit 0, got %v: %s", err, stderr.String())
 	}
 	out := stdout.String()
-	for _, want := range []string{"usage: tsui [flags]", "  -s, --server string", "  --context string", "  --tlsfirst", `(default "auto")`} {
+	for _, want := range []string{"usage: relay [flags]", "  -s, --server string", "  --context string", "  --tlsfirst", `(default "auto")`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected the help on stdout to contain %q:\n%s", want, out)
 		}

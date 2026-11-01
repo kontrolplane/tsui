@@ -8,10 +8,10 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/kontrolplane/tsui/pkg/client"
-	keys "github.com/kontrolplane/tsui/pkg/keys"
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/client"
+	keys "github.com/kontrolplane/relay/pkg/keys"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 // Layout constants for consistent sizing across all views
@@ -87,7 +87,7 @@ type model struct {
 	conn        *nats.Conn
 	js          jetstream.JetStream
 	info        client.Info
-	server      tsui.Server
+	server      relay.Server
 	serverOK    bool
 	rttOK       bool
 	context     context.Context

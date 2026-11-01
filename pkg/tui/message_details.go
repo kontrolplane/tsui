@@ -13,15 +13,15 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/nats-io/nats.go"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 func detailsViewportHeight() int { return contentHeight - 3 } // Account for header and margin
 
 type messageDetailsState struct {
-	message  tsui.Message
+	message  relay.Message
 	payload  payloadText
 	kind     string         // what the payload is and its size, for the section header
 	viewport viewport.Model // the payload

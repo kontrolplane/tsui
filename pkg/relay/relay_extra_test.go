@@ -1,4 +1,4 @@
-package tsui
+package relay
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 func runServerConn(t *testing.T) (*nats.Conn, jetstream.JetStream) {
 	t.Helper()
 	srv, err := server.NewServer(&server.Options{
-		ServerName: "tsui-test",
+		ServerName: "relay-test",
 		Host:       "127.0.0.1",
 		Port:       -1,
 		JetStream:  true,
@@ -297,7 +297,7 @@ func TestGetServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Windows' clock can measure a loopback round trip as zero.
-	if s.Name != "tsui-test" || s.Version == "" || s.RTT < 0 {
+	if s.Name != "relay-test" || s.Version == "" || s.RTT < 0 {
 		t.Errorf("unexpected server info: %+v", s)
 	}
 	if s.Streams != 1 || s.Consumers != 1 || s.Memory == 0 || s.Store != 0 {

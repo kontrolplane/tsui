@@ -16,8 +16,8 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
 )
 
 // runServer starts an embedded JetStream server with an ORDERS stream holding 12 messages (6 on
@@ -52,10 +52,10 @@ func runServer(t *testing.T) (*nats.Conn, jetstream.JetStream) {
 	}
 
 	ctx := context.Background()
-	if _, err := tsui.CreateStream(ctx, js, tsui.StreamConfig{Name: "ORDERS", Subjects: []string{"orders.>"}, MaxMsgs: -1, MaxBytes: -1, AllowDirect: true}); err != nil {
+	if _, err := relay.CreateStream(ctx, js, relay.StreamConfig{Name: "ORDERS", Subjects: []string{"orders.>"}, MaxMsgs: -1, MaxBytes: -1, AllowDirect: true}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tsui.CreateStream(ctx, js, tsui.StreamConfig{Name: "EVENTS", Subjects: []string{"events.*"}}); err != nil {
+	if _, err := relay.CreateStream(ctx, js, relay.StreamConfig{Name: "EVENTS", Subjects: []string{"events.*"}}); err != nil {
 		t.Fatal(err)
 	}
 	for i := 1; i <= 12; i++ {
@@ -63,7 +63,7 @@ func runServer(t *testing.T) (*nats.Conn, jetstream.JetStream) {
 		if i%2 == 0 {
 			subject = "orders.us"
 		}
-		if _, err := tsui.PublishMessage(ctx, js, subject, nil, []byte(fmt.Sprintf(`{"n":%d}`, i))); err != nil {
+		if _, err := relay.PublishMessage(ctx, js, subject, nil, []byte(fmt.Sprintf(`{"n":%d}`, i))); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -144,16 +144,16 @@ func step(t *testing.T, m model, keys ...string) model {
 func liveModel(t *testing.T) (model, jetstream.JetStream) {
 	t.Helper()
 	nc, js := runServer(t)
-	m := newModel("test", "tsui")
+	m := newModel("test", "relay")
 	m.width, m.height = 160, 50
 	m.conn, m.js = nc, js
 	m = drain(t, m, m.Init())
 	return m, js
 }
 
-func streamState(t *testing.T, js jetstream.JetStream, name string) tsui.Stream {
+func streamState(t *testing.T, js jetstream.JetStream, name string) relay.Stream {
 	t.Helper()
-	s, err := tsui.GetStream(context.Background(), js, name)
+	s, err := relay.GetStream(context.Background(), js, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +241,7 @@ func TestFlowBrowseDeleteAndPurge(t *testing.T) {
 	if m.page != streamDetails || len(m.state.streamDetails.consumers) != 0 {
 		t.Fatalf("expected no consumers after delete, got page %v, %d consumers", m.page, len(m.state.streamDetails.consumers))
 	}
-	if cs, _ := tsui.ListConsumers(context.Background(), js, "ORDERS"); len(cs) != 0 {
+	if cs, _ := relay.ListConsumers(context.Background(), js, "ORDERS"); len(cs) != 0 {
 		t.Errorf("expected the consumer to be deleted on the server, got %d", len(cs))
 	}
 
@@ -303,7 +303,7 @@ func TestFlowBulkDeleteStreams(t *testing.T) {
 	if names, _ := m.getSelectedStreams(); len(names) != 0 {
 		t.Errorf("expected nothing to delete on an empty overview, got %v", names)
 	}
-	if streams, _ := tsui.ListStreams(context.Background(), js); len(streams) != 0 {
+	if streams, _ := relay.ListStreams(context.Background(), js); len(streams) != 0 {
 		t.Errorf("expected the streams to be deleted on the server, got %d", len(streams))
 	}
 }
@@ -521,7 +521,7 @@ func TestFlowCreateStream(t *testing.T) {
 
 func TestFlowStreamGoneWhileBrowsing(t *testing.T) {
 	m, js := liveModel(t)
-	if err := tsui.DeleteStream(context.Background(), js, "ORDERS"); err != nil {
+	if err := relay.DeleteStream(context.Background(), js, "ORDERS"); err != nil {
 		t.Fatal(err)
 	}
 	m = step(t, m, "j", "enter")
@@ -553,7 +553,7 @@ func TestFlowDisconnectedHidesLoadErrors(t *testing.T) {
 func TestFlowRefreshTicks(t *testing.T) {
 	m, js := liveModel(t)
 	ctx := context.Background()
-	if _, err := tsui.CreateStream(ctx, js, tsui.StreamConfig{Name: "LATE", Subjects: []string{"late"}}); err != nil {
+	if _, err := relay.CreateStream(ctx, js, relay.StreamConfig{Name: "LATE", Subjects: []string{"late"}}); err != nil {
 		t.Fatal(err)
 	}
 	_, cmd := update(t, m, refreshTick(m))
@@ -563,7 +563,7 @@ func TestFlowRefreshTicks(t *testing.T) {
 	}
 
 	m = step(t, m, "G", "enter") // ORDERS
-	if _, err := tsui.PublishMessage(ctx, js, "orders.eu", nil, []byte("new")); err != nil {
+	if _, err := relay.PublishMessage(ctx, js, "orders.eu", nil, []byte("new")); err != nil {
 		t.Fatal(err)
 	}
 	m, cmd = update(t, m, refreshTick(m))

@@ -9,9 +9,9 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 type redriveFocus int
@@ -108,7 +108,7 @@ func (m model) redriveTargets() []string {
 func (m model) storingStream(subject string) (string, bool) {
 	for _, s := range m.state.streamOverview.streams {
 		for _, pattern := range s.Subjects {
-			if tsui.SubjectMatches(pattern, subject) {
+			if relay.SubjectMatches(pattern, subject) {
 				return s.Name, true
 			}
 		}
@@ -119,7 +119,7 @@ func (m model) storingStream(subject string) (string, bool) {
 // redriveStatus tells, while typing, which streams will store the redriven messages.
 func (m model) redriveStatus() []styles.Span {
 	subject := m.redriveSubject()
-	if subject != "" && !tsui.ValidPublishSubject(subject) {
+	if subject != "" && !relay.ValidPublishSubject(subject) {
 		return []styles.Span{styles.S("✗ ", styles.ToneDanger), styles.S("no wildcards, spaces or empty tokens when publishing", styles.ToneDanger)}
 	}
 	if !m.state.streamOverview.loaded {
@@ -255,7 +255,7 @@ func (m model) MessageRedriveUpdate(msg tea.Msg) (model, tea.Cmd) {
 func (m model) redrive() (model, tea.Cmd) {
 	r := m.state.messageRedrive
 	subject := m.redriveSubject()
-	if subject != "" && !tsui.ValidPublishSubject(subject) {
+	if subject != "" && !relay.ValidPublishSubject(subject) {
 		m.error = fmt.Sprintf("%q is not a valid subject to publish to (no wildcards, spaces or empty tokens).", subject)
 		return m, nil
 	}
@@ -269,7 +269,7 @@ func (m model) redrive() (model, tea.Cmd) {
 }
 
 // redriveResult describes the outcome of a redrive: what was done, and what to say when it stopped.
-func redriveResult(total int, res tsui.RedriveResult) (done, failed string) {
+func redriveResult(total int, res relay.RedriveResult) (done, failed string) {
 	verb := "redrove "
 	if len(res.Deleted) > 0 {
 		verb = "moved "

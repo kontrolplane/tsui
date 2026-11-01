@@ -7,7 +7,7 @@ Set TypingSpeed 100ms
 Output ./assets/cassette.gif
 
 Hide
-  Type@10ms "go build -o build/kontrolplane/tsui . && clear && ./build/kontrolplane/tsui"
+  Type@10ms "go build -o build/kontrolplane/relay . && clear && ./build/kontrolplane/relay"
   Enter
   Wait+Screen@60s /connected/
   Sleep 1s

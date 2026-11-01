@@ -9,13 +9,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 func newTestModel() model {
-	m := newModel("test", "tsui")
+	m := newModel("test", "relay")
 	m.width = 160
 	m.height = 50
 	m.loading = false
@@ -58,7 +58,7 @@ func typeText(t *testing.T, m model, text string) model {
 	return m
 }
 
-var testStreams = []tsui.Stream{
+var testStreams = []relay.Stream{
 	{Name: "EVENTS", Subjects: []string{"events.*"}, Storage: "memory", Retention: "limits", Messages: 3},
 	{Name: "JOBS", Subjects: []string{"jobs.>"}, Storage: "file", Retention: "workqueue", DenyDelete: true},
 	{Name: "ORDERS", Subjects: []string{"orders.>"}, Storage: "file", Retention: "limits", Messages: 240},
@@ -210,12 +210,12 @@ func detailsModel(t *testing.T) model {
 	now := time.Now()
 	m, _ = update(t, m,
 		messages.StreamLoadedMsg{Name: "ORDERS", Stream: testStreams[2]},
-		messages.MessagesLoadedMsg{Stream: "ORDERS", Messages: []tsui.Message{
+		messages.MessagesLoadedMsg{Stream: "ORDERS", Messages: []relay.Message{
 			{Stream: "ORDERS", Subject: "orders.eu.created", Sequence: 3, Time: now, Data: []byte(`{"id":3}`)},
 			{Stream: "ORDERS", Subject: "orders.us.created", Sequence: 2, Time: now, Data: []byte(`{"id":2}`)},
 			{Stream: "ORDERS", Subject: "orders.eu.shipped", Sequence: 1, Time: now, Data: []byte(`{"id":1}`)},
 		}},
-		messages.ConsumersLoadedMsg{Stream: "ORDERS", Consumers: []tsui.Consumer{
+		messages.ConsumersLoadedMsg{Stream: "ORDERS", Consumers: []relay.Consumer{
 			{Stream: "ORDERS", Name: "billing", AckPolicy: "explicit", DeliverPolicy: "all"},
 		}},
 	)
@@ -254,7 +254,7 @@ func TestSubjectsTab(t *testing.T) {
 		t.Error("expected the subjects to be loaded")
 	}
 
-	m, _ = update(t, m, messages.SubjectsLoadedMsg{Stream: "ORDERS", Subjects: []tsui.SubjectCount{
+	m, _ = update(t, m, messages.SubjectsLoadedMsg{Stream: "ORDERS", Subjects: []relay.SubjectCount{
 		{Subject: "orders.eu.created", Messages: 160},
 		{Subject: "orders.us.created", Messages: 80},
 	}})
@@ -270,7 +270,7 @@ func TestSubjectsTab(t *testing.T) {
 	if !strings.Contains(ansi.Strip(m.StreamDetailsView()), "loading the messages on orders.us.created") {
 		t.Error("expected the subject load to be shown")
 	}
-	m, _ = update(t, m, messages.MessagesLoadedMsg{Stream: "ORDERS", Subject: "orders.us.created", Gen: m.msgsGen, Messages: []tsui.Message{
+	m, _ = update(t, m, messages.MessagesLoadedMsg{Stream: "ORDERS", Subject: "orders.us.created", Gen: m.msgsGen, Messages: []relay.Message{
 		{Stream: "ORDERS", Subject: "orders.us.created", Sequence: 2},
 	}})
 	if got := m.getFilteredMessages(); len(got) != 1 || got[0].Sequence != 2 {
@@ -306,7 +306,7 @@ func TestHighlightJSON(t *testing.T) {
 
 func TestStaleDetailsResultsAreIgnored(t *testing.T) {
 	m := detailsModel(t)
-	m, _ = update(t, m, messages.MessagesLoadedMsg{Stream: "EVENTS", Messages: []tsui.Message{{Sequence: 99}}})
+	m, _ = update(t, m, messages.MessagesLoadedMsg{Stream: "EVENTS", Messages: []relay.Message{{Sequence: 99}}})
 	if len(m.state.streamDetails.messages) != 3 {
 		t.Error("expected messages of another stream to be ignored")
 	}
@@ -323,7 +323,7 @@ func TestMessageWildcardFilter(t *testing.T) {
 	if d := m.state.streamDetails; d.subject != "orders.eu.*" || d.messagesLoaded {
 		t.Fatalf("expected enter to load the messages on orders.eu.* from the server, got subject %q", d.subject)
 	}
-	m, _ = update(t, m, messages.MessagesLoadedMsg{Stream: "ORDERS", Subject: "orders.eu.*", Gen: m.msgsGen, Messages: []tsui.Message{
+	m, _ = update(t, m, messages.MessagesLoadedMsg{Stream: "ORDERS", Subject: "orders.eu.*", Gen: m.msgsGen, Messages: []relay.Message{
 		{Stream: "ORDERS", Subject: "orders.eu.created", Sequence: 3},
 		{Stream: "ORDERS", Subject: "orders.eu.shipped", Sequence: 1},
 	}})

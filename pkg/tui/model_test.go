@@ -10,9 +10,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 func TestResizeFitsTablesAndClampsToMinimum(t *testing.T) {
@@ -124,7 +124,7 @@ func TestRenderEveryPage(t *testing.T) {
 			continue
 		}
 		v := opened.View()
-		if !v.AltScreen || v.WindowTitle != "tsui" {
+		if !v.AltScreen || v.WindowTitle != "relay" {
 			t.Errorf("%v: unexpected view settings", p)
 		}
 		out := ansi.Strip(opened.render())
@@ -210,7 +210,7 @@ func TestDetailsReturnToTheSameTab(t *testing.T) {
 func TestDetailsFilterAppliesToEveryTab(t *testing.T) {
 	m := detailsModel(t)
 	m.state.streamDetails.consumers = append(m.state.streamDetails.consumers,
-		tsui.Consumer{Stream: "ORDERS", Name: "shipping", FilterSubjects: []string{"orders.*.shipped"}})
+		relay.Consumer{Stream: "ORDERS", Name: "shipping", FilterSubjects: []string{"orders.*.shipped"}})
 	m = m.updateConsumersTable()
 
 	m, _ = update(t, m, press("/"))
@@ -301,7 +301,7 @@ func TestServerHeader(t *testing.T) {
 	if _, foot := m.frameMeta(); !strings.Contains(ansi.Strip(foot), "offline") {
 		t.Error("expected the frame to show offline without a connection")
 	}
-	m, cmd := update(t, m, messages.ServerLoadedMsg{Server: tsui.Server{
+	m, cmd := update(t, m, messages.ServerLoadedMsg{Server: relay.Server{
 		Name: "n1", Version: "2.12.0", Cluster: "c1", Domain: "hub", RTT: 1500 * time.Microsecond,
 		Streams: 3, Consumers: 2, Store: 900, MaxStore: 1000, Memory: 10, MaxMemory: -1,
 	}})
@@ -402,8 +402,8 @@ func TestSequencePosition(t *testing.T) {
 			t.Errorf("sequencePosition(%d, %d, %d) = %v, want %v", c.seq, c.first, c.last, got, c.want)
 		}
 	}
-	stream := tsui.Stream{FirstSeq: 1, LastSeq: 10}
-	for c, want := range map[*tsui.Consumer]string{
+	stream := relay.Stream{FirstSeq: 1, LastSeq: 10}
+	for c, want := range map[*relay.Consumer]string{
 		{Paused: true}:                "paused",
 		{}:                            "caught up",
 		{NumPending: 5, Delivered: 5}: "50%",

@@ -1,6 +1,6 @@
 services:
   nats:
-    container_name: "${NATS_DOCKER_NAME:-tsui-nats}"
+    container_name: "${NATS_DOCKER_NAME:-relay-nats}"
     image: nats:2.15-alpine
     command: ["--jetstream", "--store_dir", "/data", "--http_port", "8222"]
     ports:

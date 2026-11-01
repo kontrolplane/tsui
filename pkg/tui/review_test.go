@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
+	"github.com/kontrolplane/relay/pkg/relay"
 )
 
 // drainN is drain with a bound, reporting whether the model settled.
@@ -30,7 +30,7 @@ func drainN(t *testing.T, m model, cmd tea.Cmd, limit int) (model, bool) {
 func TestReviewPagedEmptyReloadLoop(t *testing.T) {
 	m, js := liveModel(t)
 	ctx := context.Background()
-	if _, err := tsui.CreateStream(ctx, js, tsui.StreamConfig{Name: "WQ", Subjects: []string{"wq"}, MaxMsgs: -1, MaxBytes: -1, AllowDirect: true}); err != nil {
+	if _, err := relay.CreateStream(ctx, js, relay.StreamConfig{Name: "WQ", Subjects: []string{"wq"}, MaxMsgs: -1, MaxBytes: -1, AllowDirect: true}); err != nil {
 		t.Fatal(err)
 	}
 	publishN(t, js, "wq", 250)
@@ -39,7 +39,7 @@ func TestReviewPagedEmptyReloadLoop(t *testing.T) {
 	if !m.state.streamDetails.paged {
 		t.Fatal("expected older pages")
 	}
-	if err := tsui.PurgeStream(ctx, js, "WQ", ""); err != nil {
+	if err := relay.PurgeStream(ctx, js, "WQ", ""); err != nil {
 		t.Fatal(err)
 	}
 	m, cmd := update(t, m, refreshTick(m))

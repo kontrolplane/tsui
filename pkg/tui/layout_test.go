@@ -12,10 +12,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/nats-io/nats.go"
 
-	"github.com/kontrolplane/tsui/pkg/client"
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/client"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 // layoutSizes are the terminal sizes every page is drawn at: below the minimum, at it, and above.
@@ -25,10 +25,10 @@ var layoutSizes = [][2]int{
 	{102, 26}, {120, 40}, {250, 70},
 }
 
-func nastyStreams() []tsui.Stream {
+func nastyStreams() []relay.Stream {
 	long := strings.Repeat("VERY_LONG_STREAM_NAME_", 8)
 	subject := strings.Repeat("tok.", 19) + "end"
-	return []tsui.Stream{
+	return []relay.Stream{
 		{Name: long, Subjects: []string{subject, "a.>", "日本語.件名.*"}, Storage: "file", Retention: "limits", Discard: "old",
 			Messages: 12345678901, Bytes: 1 << 50, Consumers: 1234567, Replicas: 3, Leader: strings.Repeat("leader-", 20),
 			LastTime: time.Now(), FirstSeq: 1, LastSeq: 18446744073709551615, NumSubjects: 99999999999, NumDeleted: 1234567890,
@@ -43,13 +43,13 @@ func nastyStreams() []tsui.Stream {
 
 // nastyMessages returns messages with long subjects, headers and payloads of every kind. The
 // multi-megabyte ones are left out under -short.
-func nastyMessages(short bool) []tsui.Message {
+func nastyMessages(short bool) []relay.Message {
 	h := nats.Header{}
 	for i := range 200 {
 		h.Add(fmt.Sprintf("X-Header-With-A-Very-Long-Name-%03d", i), strings.Repeat("v", 300))
 	}
 	h.Add("Nats-Msg-Id", "id\x1b]0;title\x07")
-	msgs := []tsui.Message{
+	msgs := []relay.Message{
 		{Stream: "S", Subject: strings.Repeat("tok.", 19) + "end", Sequence: 18446744073709551615, Time: time.Now(), Header: h, Data: []byte("line1\n\tline2\ttabbed\r\nline3 日本語 🚀🚀🚀 " + strings.Repeat("wide 漢字 ", 40))},
 		{Stream: "S", Subject: "empty", Sequence: 2},
 		{Stream: "S", Subject: "bin", Sequence: 3, Data: []byte{0xff, 0xfe, 0, 1, 2, 0x1b, '[', '3', '1', 'm'}},
@@ -64,16 +64,16 @@ func nastyMessages(short bool) []tsui.Message {
 		}
 		dense.WriteString("1]")
 		msgs = append(msgs,
-			tsui.Message{Stream: "S", Subject: "big", Sequence: 7, Data: []byte(strings.Repeat(`{"k":"`+strings.Repeat("x", 1000)+`"},`, 3000))},
-			tsui.Message{Stream: "S", Subject: "dense", Sequence: 8, Data: []byte(dense.String())},
-			tsui.Message{Stream: "S", Subject: "line", Sequence: 9, Data: []byte(strings.Repeat("x", 3<<20))},
+			relay.Message{Stream: "S", Subject: "big", Sequence: 7, Data: []byte(strings.Repeat(`{"k":"`+strings.Repeat("x", 1000)+`"},`, 3000))},
+			relay.Message{Stream: "S", Subject: "dense", Sequence: 8, Data: []byte(dense.String())},
+			relay.Message{Stream: "S", Subject: "line", Sequence: 9, Data: []byte(strings.Repeat("x", 3<<20))},
 		)
 	}
 	return msgs
 }
 
-func nastyConsumers(stream string) []tsui.Consumer {
-	return []tsui.Consumer{
+func nastyConsumers(stream string) []relay.Consumer {
+	return []relay.Consumer{
 		{Stream: stream, Name: strings.Repeat("consumer-name-", 10), FilterSubjects: []string{strings.Repeat("f.", 15) + ">", "a.*"},
 			Description: strings.Repeat("desc ", 60), Delivered: 5, AckFloor: 3, NumPending: 9999999999, NumAckPending: 123456789,
 			NumRedelivered: 987654321, NumWaiting: 12345678, Durable: true, LastActive: time.Now(), AckWait: 90061 * time.Second,
@@ -85,15 +85,15 @@ func nastyConsumers(stream string) []tsui.Consumer {
 // layoutPages opens every page of a model sized to the terminal, with the nasty fixtures loaded.
 func layoutPages(t *testing.T, w, h int, short bool) map[string]model {
 	t.Helper()
-	m := newModel("kontrolplane", "tsui")
-	m.info = tsuiInfo()
+	m := newModel("kontrolplane", "relay")
+	m.info = relayInfo()
 	m.loading = false
 	m, _ = update(t, m, tea.WindowSizeMsg{Width: w, Height: h})
 	pages := map[string]model{"overview empty": m}
 
 	m, _ = update(t, m, messages.StreamsLoadedMsg{Streams: nastyStreams()})
 	m.serverOK = true
-	m.server = tsui.Server{Name: strings.Repeat("nats-server-", 6), Version: "2.11.4", Cluster: strings.Repeat("cluster-", 6), Domain: "hub",
+	m.server = relay.Server{Name: strings.Repeat("nats-server-", 6), Version: "2.11.4", Cluster: strings.Repeat("cluster-", 6), Domain: "hub",
 		Streams: 1234567890, Consumers: 98765432109, Store: 5 << 40, MaxStore: 10 << 40, Memory: 12 << 30, MaxMemory: 16 << 30, RTT: time.Millisecond}
 	pages["overview"] = m
 
@@ -126,7 +126,7 @@ func layoutPages(t *testing.T, w, h int, short bool) map[string]model {
 		messages.StreamLoadedMsg{Name: st.Name, Stream: st},
 		messages.MessagesLoadedMsg{Stream: st.Name, Messages: nastyMessages(short), Gen: m.msgsGen},
 		messages.ConsumersLoadedMsg{Stream: st.Name, Consumers: nastyConsumers(st.Name)},
-		messages.SubjectsLoadedMsg{Stream: st.Name, Subjects: []tsui.SubjectCount{{Subject: strings.Repeat("tok.", 19) + "end", Messages: 12345678901}, {Subject: "日本語.件名.x", Messages: 1}}},
+		messages.SubjectsLoadedMsg{Stream: st.Name, Subjects: []relay.SubjectCount{{Subject: strings.Repeat("tok.", 19) + "end", Messages: 12345678901}, {Subject: "日本語.件名.x", Messages: 1}}},
 	)
 	m.loading = false
 	pages["details messages"] = m
@@ -327,7 +327,7 @@ func TestTablesDropColumnsToFit(t *testing.T) {
 	}
 }
 
-func tsuiInfo() client.Info {
+func relayInfo() client.Info {
 	return client.Info{Context: strings.Repeat("production-context-", 5), URL: strings.Repeat("tls://nats.example.com:4222,", 5)}
 }
 

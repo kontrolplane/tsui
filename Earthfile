@@ -12,14 +12,14 @@ compile:
     COPY cmd/ cmd/
     COPY pkg/ pkg/
     ARG VERSION=dev
-    RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o build/kontrolplane/tsui .
-    SAVE ARTIFACT build/kontrolplane/tsui AS LOCAL build/kontrolplane/tsui
+    RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o build/kontrolplane/relay .
+    SAVE ARTIFACT build/kontrolplane/relay AS LOCAL build/kontrolplane/relay
 
 container:
     ARG VERSION=dev
     FROM DOCKERFILE --build-arg VERSION=${VERSION} .
     ARG tag="latest"
-    SAVE IMAGE ghcr.io/kontrolplane/tsui:${tag}
+    SAVE IMAGE ghcr.io/kontrolplane/relay:${tag}
 
 seed:
     LOCALLY
@@ -39,7 +39,7 @@ dev:
         BUILD +nats
     END
     RUN NATS_URL=$NATS_URL bash seed/seed.sh
-    RUN go build -o build/kontrolplane/tsui .
+    RUN go build -o build/kontrolplane/relay .
 
 list:
     LOCALLY

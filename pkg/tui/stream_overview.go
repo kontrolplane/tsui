@@ -9,14 +9,14 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 type streamOverviewState struct {
 	selected      int
-	streams       []tsui.Stream
+	streams       []relay.Stream
 	loaded        bool
 	table         dataTable
 	selectedItems map[string]bool // stream names selected for bulk operations
@@ -38,7 +38,7 @@ var streamOverviewColumns = []column{
 
 // streamMatches reports whether the name, description or a subject of a stream contains filter,
 // ignoring case, or whether one of its subjects overlaps filter, wildcards included.
-func streamMatches(s tsui.Stream, filter string) bool {
+func streamMatches(s relay.Stream, filter string) bool {
 	filter = strings.ToLower(filter)
 	if strings.Contains(strings.ToLower(s.Name), filter) ||
 		strings.Contains(strings.ToLower(s.Description), filter) {
@@ -46,21 +46,21 @@ func streamMatches(s tsui.Stream, filter string) bool {
 	}
 	for _, subject := range s.Subjects {
 		subject = strings.ToLower(subject)
-		if strings.Contains(subject, filter) || tsui.SubjectsOverlap(subject, filter) {
+		if strings.Contains(subject, filter) || relay.SubjectsOverlap(subject, filter) {
 			return true
 		}
 	}
 	return false
 }
 
-func (m model) getFilteredStreams() []tsui.Stream {
+func (m model) getFilteredStreams() []relay.Stream {
 	o := m.state.streamOverview
 	return filterBy(o.streams, o.filterText, streamMatches)
 }
 
 // streamSubjectSpans renders what a stream listens on: its subjects, or where a mirror or
 // sourced stream takes its messages from.
-func streamSubjectSpans(s tsui.Stream) cell {
+func streamSubjectSpans(s relay.Stream) cell {
 	switch {
 	case len(s.Subjects) > 0:
 		return styles.Subjects(s.Subjects, styles.ToneBody)
@@ -112,10 +112,10 @@ func (m model) updateStreamOverviewTable() model {
 	return m
 }
 
-func (m model) currentStream() (tsui.Stream, bool) {
+func (m model) currentStream() (relay.Stream, bool) {
 	streams := m.getFilteredStreams()
 	if len(streams) == 0 {
-		return tsui.Stream{}, false
+		return relay.Stream{}, false
 	}
 	return streams[m.state.streamOverview.selected], true
 }
@@ -132,7 +132,7 @@ func (m model) toggleStreamSelection() model {
 // action on the selection leaves alone.
 func (m model) getSelectedStreams() (names []string, hidden int) {
 	o := m.state.streamOverview
-	names = selectedOr(o.selectedItems, m.getFilteredStreams(), func(s tsui.Stream) string { return s.Name }, m.currentStream)
+	names = selectedOr(o.selectedItems, m.getFilteredStreams(), func(s relay.Stream) string { return s.Name }, m.currentStream)
 	if len(o.selectedItems) > 0 {
 		hidden = len(o.selectedItems) - len(names)
 	}

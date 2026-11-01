@@ -13,9 +13,9 @@ import (
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 // Stream names may not contain whitespace, `.`, `*`, `>`, path separators or non-printable characters.
@@ -436,10 +436,10 @@ func (m model) StreamCreateUpdate(msg tea.Msg) (model, tea.Cmd) {
 }
 
 // buildStreamConfig converts the form input into a stream configuration.
-func buildStreamConfig(input *streamCreateInput) (tsui.StreamConfig, error) {
+func buildStreamConfig(input *streamCreateInput) (relay.StreamConfig, error) {
 	name := strings.TrimSpace(input.name)
 	if err := validateStreamName(name); err != nil {
-		return tsui.StreamConfig{}, err
+		return relay.StreamConfig{}, err
 	}
 
 	subjects := splitSubjects(input.subjects)
@@ -447,7 +447,7 @@ func buildStreamConfig(input *streamCreateInput) (tsui.StreamConfig, error) {
 		subjects = []string{strings.ToLower(name) + ".>"}
 	}
 
-	cfg := tsui.StreamConfig{
+	cfg := relay.StreamConfig{
 		Name:              name,
 		Description:       strings.TrimSpace(input.description),
 		Subjects:          subjects,

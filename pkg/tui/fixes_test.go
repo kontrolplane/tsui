@@ -11,10 +11,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/kontrolplane/tsui/pkg/client"
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/client"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 // settle feeds the messages of cmd back into the model, for forms that move on through commands.
@@ -137,7 +137,7 @@ func TestStreamCreateShowsFieldErrors(t *testing.T) {
 
 func TestSubjectFilterShowsTheConsumersCoveringIt(t *testing.T) {
 	m := detailsModel(t)
-	m, _ = update(t, m, messages.ConsumersLoadedMsg{Stream: "ORDERS", Consumers: []tsui.Consumer{
+	m, _ = update(t, m, messages.ConsumersLoadedMsg{Stream: "ORDERS", Consumers: []relay.Consumer{
 		{Stream: "ORDERS", Name: "all"},
 		{Stream: "ORDERS", Name: "eu", FilterSubjects: []string{"orders.eu.>"}},
 		{Stream: "ORDERS", Name: "us", FilterSubjects: []string{"orders.us.*"}},
@@ -152,14 +152,14 @@ func TestSubjectFilterShowsTheConsumersCoveringIt(t *testing.T) {
 		t.Errorf("expected the consumers receiving orders.eu.created, got %v", names)
 	}
 
-	wide := tsui.Stream{Subjects: []string{">"}}
+	wide := relay.Stream{Subjects: []string{">"}}
 	if subjectLike("hello", wide, nil) {
 		t.Error("expected a plain word not to be a subject on a stream taking every subject")
 	}
-	if !subjectLike("hello", wide, []tsui.SubjectCount{{Subject: "hello", Messages: 1}}) {
+	if !subjectLike("hello", wide, []relay.SubjectCount{{Subject: "hello", Messages: 1}}) {
 		t.Error("expected a plain word naming a known subject to be one")
 	}
-	if !subjectLike("orders", tsui.Stream{Subjects: []string{"orders"}}, nil) {
+	if !subjectLike("orders", relay.Stream{Subjects: []string{"orders"}}, nil) {
 		t.Error("expected a subject of the stream to be one")
 	}
 }
@@ -167,7 +167,7 @@ func TestSubjectFilterShowsTheConsumersCoveringIt(t *testing.T) {
 func TestCreatedStreamIsUnderTheCursorOnReturn(t *testing.T) {
 	m := loadedModel(t)
 	m, _ = update(t, m, press("ctrl+n"))
-	m, _ = update(t, m, messages.StreamCreatedMsg{Stream: tsui.Stream{Name: "INVOICES", Subjects: []string{"invoices.>"}}})
+	m, _ = update(t, m, messages.StreamCreatedMsg{Stream: relay.Stream{Name: "INVOICES", Subjects: []string{"invoices.>"}}})
 	if m.page != streamDetails {
 		t.Fatalf("expected the details of the new stream, got page %v", m.page)
 	}
@@ -217,7 +217,7 @@ func TestHeaderGivesTheUrlPriority(t *testing.T) {
 	m, _ = update(t, m, tea.WindowSizeMsg{Width: 120, Height: 40})
 	defer setLayout(160, 50)
 	id := "NDJ3TQ2K6L5QXKJXJ2QEVGTX7UYRMD3OGH4T5VKXRBSC6ACZ7YXVPNGU"
-	m, _ = update(t, m, messages.ServerLoadedMsg{Server: tsui.Server{Name: id, Version: "2.12.0", Streams: 3}})
+	m, _ = update(t, m, messages.ServerLoadedMsg{Server: relay.Server{Name: id, Version: "2.12.0", Streams: 3}})
 	header := ansi.Strip(m.renderHeader())
 	if !strings.Contains(header, "nats://127.0.0.1:4222") {
 		t.Errorf("expected the url in full:\n%s", header)
@@ -229,15 +229,15 @@ func TestHeaderGivesTheUrlPriority(t *testing.T) {
 
 func TestConsumerStatus(t *testing.T) {
 	for _, c := range []struct {
-		consumer tsui.Consumer
+		consumer relay.Consumer
 		want     string
 	}{
-		{tsui.Consumer{}, "idle, no client pulling"},
-		{tsui.Consumer{NumWaiting: 1}, "active"},
-		{tsui.Consumer{LastActive: time.Now()}, "active"},
-		{tsui.Consumer{Push: true}, "idle, no client bound"},
-		{tsui.Consumer{Push: true, PushBound: true}, "active"},
-		{tsui.Consumer{Paused: true, NumWaiting: 1}, "paused"},
+		{relay.Consumer{}, "idle, no client pulling"},
+		{relay.Consumer{NumWaiting: 1}, "active"},
+		{relay.Consumer{LastActive: time.Now()}, "active"},
+		{relay.Consumer{Push: true}, "idle, no client bound"},
+		{relay.Consumer{Push: true, PushBound: true}, "active"},
+		{relay.Consumer{Paused: true, NumWaiting: 1}, "paused"},
 	} {
 		if got := styles.Render(consumerStatus(c.consumer)...); !strings.Contains(ansi.Strip(got), c.want) {
 			t.Errorf("consumerStatus(%+v) = %q, want %q", c.consumer, ansi.Strip(got), c.want)
@@ -267,7 +267,7 @@ func TestWording(t *testing.T) {
 		t.Errorf("expected the subjects of a purged stream not to wait either, got %q", m.state.streamDetails.subjectsTable.empty)
 	}
 
-	s := tsui.Stream{Name: "S", Messages: 5, FirstSeq: 10, LastSeq: 20}
+	s := relay.Stream{Name: "S", Messages: 5, FirstSeq: 10, LastSeq: 20}
 	for seq, want := range map[uint64]string{
 		12: "message #12 was deleted",
 		30: "no message #30 (stream holds #10–#20)",
@@ -308,7 +308,7 @@ func TestPublishFlagsABadHeaderLineWhileTyping(t *testing.T) {
 
 func TestOutdatedConsumerListsAreDropped(t *testing.T) {
 	m := detailsModel(t)
-	fresh := []tsui.Consumer{{Stream: "ORDERS", Name: "billing"}, {Stream: "ORDERS", Name: "fresh"}}
+	fresh := []relay.Consumer{{Stream: "ORDERS", Name: "billing"}, {Stream: "ORDERS", Name: "fresh"}}
 	m, _ = update(t, m, messages.ConsumersLoadedMsg{Stream: "ORDERS", Gen: 2, Consumers: fresh})
 	m, _ = update(t, m, press("tab"), press("j"), press("enter"))
 	if m.page != consumerDetails || m.state.consumerDetails.consumer.Name != "fresh" {

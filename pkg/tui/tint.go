@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 // tint splits a line of the tail into spans so the structure of JSON and logfmt recedes behind

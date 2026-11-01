@@ -1,4 +1,4 @@
-package tsui
+package relay
 
 import (
 	"context"

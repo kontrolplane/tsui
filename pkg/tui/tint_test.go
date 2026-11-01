@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 // spans renders a cell as text|tone pairs, with bold spans starred, to compare in tests.

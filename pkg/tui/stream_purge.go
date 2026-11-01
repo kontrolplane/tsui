@@ -8,9 +8,9 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 type purgeFocus int
@@ -32,7 +32,7 @@ const (
 const secondPromptThreshold = 10
 
 type streamPurgeState struct {
-	stream       tsui.Stream
+	stream       relay.Stream
 	selected     int // 0 = no, 1 = yes
 	step         purgeStep
 	fromOverview bool
@@ -91,12 +91,12 @@ func validSubjectFilter(s string) bool {
 }
 
 // subjectInStream reports whether the (possibly wildcard) subject overlaps with one of the stream subjects.
-func subjectInStream(s tsui.Stream, subject string) bool {
+func subjectInStream(s relay.Stream, subject string) bool {
 	if len(s.Subjects) == 0 {
 		return true
 	}
 	for _, pattern := range s.Subjects {
-		if tsui.SubjectsOverlap(pattern, subject) {
+		if relay.SubjectsOverlap(pattern, subject) {
 			return true
 		}
 	}
@@ -120,7 +120,7 @@ func covers(filter, pattern string) bool {
 }
 
 // coversStream reports whether purging subject empties the whole stream.
-func coversStream(s tsui.Stream, subject string) bool {
+func coversStream(s relay.Stream, subject string) bool {
 	if subject == "" || subject == ">" {
 		return true
 	}
@@ -143,12 +143,12 @@ func (m model) purgeEstimate(subject string) (uint64, bool) {
 		return p.stream.Messages, true
 	}
 	d := m.state.streamDetails
-	if d.stream.Name != p.stream.Name || !d.subjectsLoaded || d.stream.NumSubjects > tsui.MaxListedSubjects {
+	if d.stream.Name != p.stream.Name || !d.subjectsLoaded || d.stream.NumSubjects > relay.MaxListedSubjects {
 		return 0, false
 	}
 	var n uint64
 	for _, s := range d.subjects {
-		if tsui.SubjectMatches(subject, s.Subject) {
+		if relay.SubjectMatches(subject, s.Subject) {
 			n += s.Messages
 		}
 	}

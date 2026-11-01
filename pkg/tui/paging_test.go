@@ -11,9 +11,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 // bigSubject is the subject of message i in the BIG stream: every 25th on big.rare.x, the others
@@ -33,7 +33,7 @@ func bigSubject(i int) string {
 func bigStream(t *testing.T, js jetstream.JetStream, direct bool) []uint64 {
 	t.Helper()
 	ctx := context.Background()
-	if _, err := tsui.CreateStream(ctx, js, tsui.StreamConfig{Name: "BIG", Subjects: []string{"big.>"}, MaxMsgs: -1, MaxBytes: -1, AllowDirect: direct}); err != nil {
+	if _, err := relay.CreateStream(ctx, js, relay.StreamConfig{Name: "BIG", Subjects: []string{"big.>"}, MaxMsgs: -1, MaxBytes: -1, AllowDirect: direct}); err != nil {
 		t.Fatal(err)
 	}
 	for i := 1; i <= 1000; i++ {
@@ -54,7 +54,7 @@ func bigStream(t *testing.T, js jetstream.JetStream, direct bool) []uint64 {
 			left = append(left, seq)
 		}
 	}
-	if _, err := tsui.DeleteMessages(ctx, js, "BIG", deleted); err != nil {
+	if _, err := relay.DeleteMessages(ctx, js, "BIG", deleted); err != nil {
 		t.Fatal(err)
 	}
 	return left
@@ -63,7 +63,7 @@ func bigStream(t *testing.T, js jetstream.JetStream, direct bool) []uint64 {
 // openStream opens the details of a stream and waits for them to load.
 func openStream(t *testing.T, m model, name string) model {
 	t.Helper()
-	m.state.streamDetails.stream = tsui.Stream{Name: name}
+	m.state.streamDetails.stream = relay.Stream{Name: name}
 	m, cmd := m.StreamDetailsSwitchPage()
 	m = drain(t, m, cmd)
 	if m.page != streamDetails || !m.state.streamDetails.messagesLoaded {
@@ -84,7 +84,7 @@ func pageToStart(t *testing.T, m model) model {
 	return m
 }
 
-func sequences(msgs []tsui.Message) []uint64 {
+func sequences(msgs []relay.Message) []uint64 {
 	seqs := make([]uint64, len(msgs))
 	for i, msg := range msgs {
 		seqs[i] = msg.Sequence
@@ -105,7 +105,7 @@ func checkNewestFirst(t *testing.T, seqs []uint64) {
 func publishN(t *testing.T, js jetstream.JetStream, subject string, n int) {
 	t.Helper()
 	for i := range n {
-		if _, err := tsui.PublishMessage(context.Background(), js, subject, nil, []byte(fmt.Sprint(i))); err != nil {
+		if _, err := relay.PublishMessage(context.Background(), js, subject, nil, []byte(fmt.Sprint(i))); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -194,7 +194,7 @@ func TestFlowRefreshKeepsOlderPages(t *testing.T) {
 func TestFlowJumpToSequence(t *testing.T) {
 	m, js := liveModel(t)
 	m = openOrders(t, m)
-	if _, err := tsui.DeleteMessages(context.Background(), js, "ORDERS", []uint64{3}); err != nil {
+	if _, err := relay.DeleteMessages(context.Background(), js, "ORDERS", []uint64{3}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -463,16 +463,16 @@ func TestRefreshedAgo(t *testing.T) {
 }
 
 func TestMergeNewer(t *testing.T) {
-	msgs := func(seqs ...uint64) []tsui.Message {
-		out := make([]tsui.Message, len(seqs))
+	msgs := func(seqs ...uint64) []relay.Message {
+		out := make([]relay.Message, len(seqs))
 		for i, s := range seqs {
-			out[i] = tsui.Message{Sequence: s}
+			out[i] = relay.Message{Sequence: s}
 		}
 		return out
 	}
 	loaded := msgs(10, 9, 7, 5, 3, 2)
 	for _, c := range []struct {
-		fresh []tsui.Message
+		fresh []relay.Message
 		next  uint64
 		want  string
 	}{
@@ -497,7 +497,7 @@ func TestOlderPagesOnlyApplyWhileAskedFor(t *testing.T) {
 	if !strings.Contains(ansi.Strip(m.renderTabBar()), "loading older…") {
 		t.Errorf("expected the hint to say older messages are loading, got %q", ansi.Strip(m.renderTabBar()))
 	}
-	older := messages.OlderMessagesLoadedMsg{Stream: "ORDERS", Gen: m.olderGen, Before: 1, Messages: []tsui.Message{{Stream: "ORDERS", Sequence: 0}}}
+	older := messages.OlderMessagesLoadedMsg{Stream: "ORDERS", Gen: m.olderGen, Before: 1, Messages: []relay.Message{{Stream: "ORDERS", Sequence: 0}}}
 	stale := older
 	stale.Gen--
 	m, _ = update(t, m, stale)
@@ -507,7 +507,7 @@ func TestOlderPagesOnlyApplyWhileAskedFor(t *testing.T) {
 
 	// A newer load that does not reach the loaded messages is asked for again.
 	m.state.streamDetails.paged = true
-	m, cmd = update(t, m, messages.MessagesLoadedMsg{Stream: "ORDERS", Gen: m.msgsGen + 1, Next: 50, Messages: []tsui.Message{{Stream: "ORDERS", Sequence: 60}}})
+	m, cmd = update(t, m, messages.MessagesLoadedMsg{Stream: "ORDERS", Gen: m.msgsGen + 1, Next: 50, Messages: []relay.Message{{Stream: "ORDERS", Sequence: 60}}})
 	if cmd == nil || len(m.state.streamDetails.messages) != 3 {
 		t.Errorf("expected the load to be asked for again, got %d messages", len(m.state.streamDetails.messages))
 	}

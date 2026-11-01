@@ -18,12 +18,12 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/kontrolplane/tsui/pkg/client"
-	keys "github.com/kontrolplane/tsui/pkg/keys"
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/client"
+	keys "github.com/kontrolplane/relay/pkg/keys"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 func NewModel(
@@ -185,7 +185,7 @@ func (m model) loadError(what string, err error, onScreen bool) (model, tea.Cmd)
 func (m model) streamGone(name string) (model, tea.Cmd) {
 	m.loading = false
 	o := &m.state.streamOverview
-	o.streams = deleteNames(o.streams, []string{name}, func(s tsui.Stream) string { return s.Name })
+	o.streams = deleteNames(o.streams, []string{name}, func(s relay.Stream) string { return s.Name })
 	m = m.updateStreamOverviewTable()
 	m, cmd := m.StreamOverviewGoBack()
 	return m.withStatus(cmd, fmt.Sprintf("stream %s no longer exists", name), styles.ToneDanger)
@@ -194,7 +194,7 @@ func (m model) streamGone(name string) (model, tea.Cmd) {
 // consumerGone leaves the details of a consumer that was deleted elsewhere, or expired.
 func (m model) consumerGone(name string) (model, tea.Cmd) {
 	d := &m.state.streamDetails
-	d.consumers = deleteNames(d.consumers, []string{name}, func(c tsui.Consumer) string { return c.Name })
+	d.consumers = deleteNames(d.consumers, []string{name}, func(c relay.Consumer) string { return c.Name })
 	d.tab = tabConsumers
 	m = m.focusDetailsTab().updateConsumersTable()
 	m, cmd := m.StreamDetailsGoBack()
@@ -202,7 +202,7 @@ func (m model) consumerGone(name string) (model, tea.Cmd) {
 }
 
 // streamContentChanged reports whether messages were added, removed or expired since prev.
-func streamContentChanged(prev, cur tsui.Stream) bool {
+func streamContentChanged(prev, cur relay.Stream) bool {
 	return prev.LastSeq != cur.LastSeq || prev.FirstSeq != cur.FirstSeq ||
 		prev.Messages != cur.Messages || prev.NumDeleted != cur.NumDeleted
 }
@@ -242,15 +242,15 @@ func (m model) publishError(err error) string {
 
 // showCreatedStream puts a stream just created into the overview with the cursor on it, so
 // leaving its details returns to it before the next refresh lists it.
-func (m model) showCreatedStream(s tsui.Stream) model {
+func (m model) showCreatedStream(s relay.Stream) model {
 	o := &m.state.streamOverview
-	i, found := slices.BinarySearchFunc(o.streams, s.Name, func(s tsui.Stream, name string) int { return strings.Compare(s.Name, name) })
+	i, found := slices.BinarySearchFunc(o.streams, s.Name, func(s relay.Stream, name string) int { return strings.Compare(s.Name, name) })
 	if found {
 		o.streams[i] = s
 	} else {
 		o.streams = slices.Insert(slices.Clone(o.streams), i, s)
 	}
-	o.selected = follow(m.getFilteredStreams(), o.selected, func(f tsui.Stream) bool { return f.Name == s.Name })
+	o.selected = follow(m.getFilteredStreams(), o.selected, func(f relay.Stream) bool { return f.Name == s.Name })
 	return m.updateStreamOverviewTable()
 }
 
@@ -335,9 +335,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.page == streamOverview {
 				m.refreshedAt = time.Now()
 			}
-			prune(o.selectedItems, o.streams, func(s tsui.Stream) string { return s.Name })
+			prune(o.selectedItems, o.streams, func(s relay.Stream) string { return s.Name })
 			if ok {
-				o.selected = follow(m.getFilteredStreams(), o.selected, func(s tsui.Stream) bool { return s.Name == prev.Name })
+				o.selected = follow(m.getFilteredStreams(), o.selected, func(s relay.Stream) bool { return s.Name == prev.Name })
 			}
 			m = m.updateStreamOverviewTable()
 		}
@@ -427,9 +427,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		prev, ok := m.currentConsumer()
 		d.consumers = msg.Consumers
 		d.consumersLoaded = true
-		prune(d.selectedConsumers, d.consumers, func(c tsui.Consumer) string { return c.Name })
+		prune(d.selectedConsumers, d.consumers, func(c relay.Consumer) string { return c.Name })
 		if ok {
-			d.selectedConsumer = follow(m.getFilteredConsumers(), d.selectedConsumer, func(c tsui.Consumer) bool { return c.Name == prev.Name })
+			d.selectedConsumer = follow(m.getFilteredConsumers(), d.selectedConsumer, func(c relay.Consumer) bool { return c.Name == prev.Name })
 		}
 		m = m.updateConsumersTable()
 		if m.page == consumerDetails {
@@ -482,7 +482,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		d.subjects = msg.Subjects
 		d.subjectsLoaded = true
 		if ok {
-			d.selectedSubject = follow(m.getFilteredSubjects(), d.selectedSubject, func(s tsui.SubjectCount) bool { return s.Subject == prev.Subject })
+			d.selectedSubject = follow(m.getFilteredSubjects(), d.selectedSubject, func(s relay.SubjectCount) bool { return s.Subject == prev.Subject })
 		}
 		m = m.updateSubjectsTable()
 
@@ -501,7 +501,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, name := range msg.Names {
 			delete(o.selectedItems, name)
 		}
-		o.streams = deleteNames(o.streams, msg.Names, func(s tsui.Stream) string { return s.Name })
+		o.streams = deleteNames(o.streams, msg.Names, func(s relay.Stream) string { return s.Name })
 		m = m.updateStreamOverviewTable()
 		done, failed := bulkResult("stream", m.state.streamDelete.streams, msg.Names)
 		return m.finish(model.StreamOverviewGoBack, done, failed, msg.Err)
@@ -539,7 +539,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, seq := range msg.Sequences {
 			delete(d.selectedMessages, seq)
 		}
-		d.messages = deleteNames(d.messages, msg.Sequences, func(msg tsui.Message) uint64 { return msg.Sequence })
+		d.messages = deleteNames(d.messages, msg.Sequences, func(msg relay.Message) uint64 { return msg.Sequence })
 		m = m.updateMessagesTable()
 		n, total := len(msg.Sequences), len(m.state.messageDelete.sequences)
 		done := fmt.Sprintf("deleted %s from %s", plural(n, "message"), msg.Stream)
@@ -556,7 +556,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, seq := range slices.Concat(res.Redriven, res.Duplicates) {
 			delete(d.selectedMessages, seq)
 		}
-		d.messages = deleteNames(d.messages, res.Deleted, func(msg tsui.Message) uint64 { return msg.Sequence })
+		d.messages = deleteNames(d.messages, res.Deleted, func(msg relay.Message) uint64 { return msg.Sequence })
 		m = m.updateMessagesTable()
 		back := model.messageRedriveGoBack
 		if len(res.Deleted) > 0 {
@@ -576,7 +576,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, name := range msg.Names {
 			delete(d.selectedConsumers, name)
 		}
-		d.consumers = deleteNames(d.consumers, msg.Names, func(c tsui.Consumer) string { return c.Name })
+		d.consumers = deleteNames(d.consumers, msg.Names, func(c relay.Consumer) string { return c.Name })
 		d.tab = tabConsumers
 		m = m.focusDetailsTab().updateConsumersTable()
 		done, failed := bulkResult("consumer", m.state.consumerDelete.consumers, msg.Names)
@@ -790,7 +790,7 @@ func (m model) frameMeta() (string, string) {
 	var meta string
 	if filter != "" {
 		spans := []styles.Span{styles.S("filter ", styles.ToneFaint)}
-		if tsui.HasWildcard(filter) {
+		if relay.HasWildcard(filter) {
 			spans = append(spans, styles.Subject(filter, styles.ToneText)...)
 		} else {
 			spans = append(spans, styles.S(filter, styles.ToneText))

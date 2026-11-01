@@ -2,11 +2,11 @@
 package messages
 
 import (
-	"github.com/kontrolplane/tsui/pkg/tsui"
+	"github.com/kontrolplane/relay/pkg/relay"
 )
 
 type StreamsLoadedMsg struct {
-	Streams []tsui.Stream
+	Streams []relay.Stream
 	Err     error
 }
 
@@ -14,7 +14,7 @@ type StreamsLoadedMsg struct {
 // Refresh marks a background refresh, as opposed to the initial load of the view.
 type StreamLoadedMsg struct {
 	Name    string
-	Stream  tsui.Stream
+	Stream  relay.Stream
 	Refresh bool
 	Err     error
 }
@@ -28,7 +28,7 @@ type MessagesLoadedMsg struct {
 	Subject  string
 	Gen      uint64
 	After    uint64
-	Messages []tsui.Message
+	Messages []relay.Message
 	Next     uint64
 	Gap      bool
 	Err      error
@@ -41,7 +41,7 @@ type OlderMessagesLoadedMsg struct {
 	Subject  string
 	Gen      uint64
 	Before   uint64
-	Messages []tsui.Message
+	Messages []relay.Message
 	Next     uint64
 	Err      error
 }
@@ -50,7 +50,7 @@ type OlderMessagesLoadedMsg struct {
 type MessageFetchedMsg struct {
 	Stream   string
 	Sequence uint64
-	Message  tsui.Message
+	Message  relay.Message
 	Err      error
 }
 
@@ -62,19 +62,19 @@ type ClockTickMsg struct{}
 type ConsumersLoadedMsg struct {
 	Stream    string
 	Gen       uint64
-	Consumers []tsui.Consumer
+	Consumers []relay.Consumer
 	Err       error
 }
 
 type ConsumerLoadedMsg struct {
 	Stream   string
 	Name     string
-	Consumer tsui.Consumer
+	Consumer relay.Consumer
 	Err      error
 }
 
 type StreamCreatedMsg struct {
-	Stream tsui.Stream
+	Stream relay.Stream
 	Err    error
 }
 
@@ -107,7 +107,7 @@ type MessagesDeletedMsg struct {
 // MessagesRedrivenMsg reports a redrive of messages from Stream; Err is the failure that stopped it.
 type MessagesRedrivenMsg struct {
 	Stream string
-	Result tsui.RedriveResult
+	Result relay.RedriveResult
 	Err    error
 }
 
@@ -134,12 +134,12 @@ type StatusClearMsg struct {
 
 type SubjectsLoadedMsg struct {
 	Stream   string
-	Subjects []tsui.SubjectCount
+	Subjects []relay.SubjectCount
 	Err      error
 }
 
 type ServerLoadedMsg struct {
-	Server tsui.Server
+	Server relay.Server
 	Err    error
 }
 

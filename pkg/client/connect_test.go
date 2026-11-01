@@ -168,7 +168,7 @@ func TestConnectWithContextCredentials(t *testing.T) {
 	writeContext(t, dir, "local", `{"url":"`+srv.ClientURL()+`","user":"app","password":"secret"}`)
 	selectContext(t, dir, "local")
 
-	nc, js, info, err := Connect(Options{}, "tsui-test")
+	nc, js, info, err := Connect(Options{}, "relay-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestConnectWithContextCredentials(t *testing.T) {
 	}
 
 	// A password given explicitly wins over the context and is rejected here.
-	if _, _, _, err := Connect(Options{Password: "wrong"}, "tsui-test"); err == nil || !strings.Contains(err.Error(), "connecting to") {
+	if _, _, _, err := Connect(Options{Password: "wrong"}, "relay-test"); err == nil || !strings.Contains(err.Error(), "connecting to") {
 		t.Errorf("expected an authorization error, got %v", err)
 	}
 }
@@ -190,7 +190,7 @@ func TestConnectWithoutContext(t *testing.T) {
 	srv := runServer(t, &server.Options{Authorization: "s3cr3t"})
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	nc, _, info, err := Connect(Options{URL: srv.ClientURL(), Token: "s3cr3t"}, "tsui-test")
+	nc, _, info, err := Connect(Options{URL: srv.ClientURL(), Token: "s3cr3t"}, "relay-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestConnectWithoutContext(t *testing.T) {
 	if info.Context != "-" {
 		t.Errorf("expected '-' without a context, got %q", info.Context)
 	}
-	if _, _, _, err := Connect(Options{URL: srv.ClientURL()}, "tsui-test"); err == nil {
+	if _, _, _, err := Connect(Options{URL: srv.ClientURL()}, "relay-test"); err == nil {
 		t.Error("expected connecting without the token to fail")
 	}
 }
@@ -208,7 +208,7 @@ func TestConnectJetStreamDomainAndPrefix(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	ctx := context.Background()
 
-	nc, js, _, err := Connect(Options{URL: srv.ClientURL(), Domain: "hub"}, "tsui-test")
+	nc, js, _, err := Connect(Options{URL: srv.ClientURL(), Domain: "hub"}, "relay-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestConnectJetStreamDomainAndPrefix(t *testing.T) {
 		t.Errorf("expected the account info of domain hub, got %+v, %v", info, err)
 	}
 
-	nc, js, _, err = Connect(Options{URL: srv.ClientURL(), APIPrefix: "$JS.hub.API"}, "tsui-test")
+	nc, js, _, err = Connect(Options{URL: srv.ClientURL(), APIPrefix: "$JS.hub.API"}, "relay-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func TestConnectJetStreamDomainAndPrefix(t *testing.T) {
 		t.Errorf("expected the api prefix to reach jetstream: %v", err)
 	}
 
-	if _, _, _, err := Connect(Options{URL: srv.ClientURL(), Domain: "hub", APIPrefix: "$JS.hub.API"}, "tsui-test"); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+	if _, _, _, err := Connect(Options{URL: srv.ClientURL(), Domain: "hub", APIPrefix: "$JS.hub.API"}, "relay-test"); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Errorf("expected domain and api prefix to be rejected together, got %v", err)
 	}
 }
@@ -240,7 +240,7 @@ func TestConnectFlagDomainOverridesContextPrefix(t *testing.T) {
 	writeContext(t, dir, "prefixed", `{"url":"`+srv.ClientURL()+`","jetstream_api_prefix":"$JS.other.API"}`)
 	selectContext(t, dir, "prefixed")
 
-	nc, _, _, err := Connect(Options{Domain: "hub"}, "tsui-test")
+	nc, _, _, err := Connect(Options{Domain: "hub"}, "relay-test")
 	if err != nil {
 		t.Fatalf("expected the explicit domain to win over the context api prefix: %v", err)
 	}
@@ -250,13 +250,13 @@ func TestConnectFlagDomainOverridesContextPrefix(t *testing.T) {
 func TestConnectErrors(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	if _, _, _, err := Connect(Options{Context: "missing"}, "tsui-test"); err == nil {
+	if _, _, _, err := Connect(Options{Context: "missing"}, "relay-test"); err == nil {
 		t.Error("expected an error for a missing explicit context")
 	}
-	if _, _, _, err := Connect(Options{NKey: filepath.Join(t.TempDir(), "missing.nk")}, "tsui-test"); err == nil || !strings.Contains(err.Error(), "loading nkey") {
+	if _, _, _, err := Connect(Options{NKey: filepath.Join(t.TempDir(), "missing.nk")}, "relay-test"); err == nil || !strings.Contains(err.Error(), "loading nkey") {
 		t.Errorf("expected an nkey error, got %v", err)
 	}
-	if _, _, _, err := Connect(Options{URL: "nats://127.0.0.1:1"}, "tsui-test"); err == nil || !strings.Contains(err.Error(), "connecting to nats://127.0.0.1:1") {
+	if _, _, _, err := Connect(Options{URL: "nats://127.0.0.1:1"}, "relay-test"); err == nil || !strings.Contains(err.Error(), "connecting to nats://127.0.0.1:1") {
 		t.Errorf("expected a connection error naming the url, got %v", err)
 	}
 }

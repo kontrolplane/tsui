@@ -12,10 +12,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 // maxAutoPages bounds the older pages loaded one after another without a key press, when pages come
@@ -71,19 +71,19 @@ func (m model) setMessageSource(subject string) (model, tea.Cmd) {
 // is a subject of the stream, or one known to hold messages: on a stream taking `>` or `*` every
 // word could be a subject, and is far more likely a search. A plain word is searched for in the
 // loaded subjects and payloads instead.
-func subjectLike(filter string, s tsui.Stream, known []tsui.SubjectCount) bool {
-	if !tsui.ValidFilterSubject(filter) {
+func subjectLike(filter string, s relay.Stream, known []relay.SubjectCount) bool {
+	if !relay.ValidFilterSubject(filter) {
 		return false
 	}
-	named := tsui.HasWildcard(filter) || strings.Contains(filter, ".") || slices.Contains(s.Subjects, filter) ||
-		slices.ContainsFunc(known, func(k tsui.SubjectCount) bool { return k.Subject == filter })
+	named := relay.HasWildcard(filter) || strings.Contains(filter, ".") || slices.Contains(s.Subjects, filter) ||
+		slices.ContainsFunc(known, func(k relay.SubjectCount) bool { return k.Subject == filter })
 	if !named {
 		return false
 	}
 	if len(s.Subjects) == 0 {
 		return true
 	}
-	return slices.ContainsFunc(s.Subjects, func(sub string) bool { return tsui.SubjectsOverlap(sub, filter) })
+	return slices.ContainsFunc(s.Subjects, func(sub string) bool { return relay.SubjectsOverlap(sub, filter) })
 }
 
 // subjectFilter reports whether filter names subjects of the details stream, see subjectLike.
@@ -105,7 +105,7 @@ func (m model) applyFilterSource() (model, tea.Cmd) {
 // mergeNewer puts fresh, the newest messages down to next (0 for all of them), on top of loaded,
 // keeping the loaded ones older than what fresh covers. What fresh covers and does not hold was
 // deleted.
-func mergeNewer(loaded, fresh []tsui.Message, next uint64) []tsui.Message {
+func mergeNewer(loaded, fresh []relay.Message, next uint64) []relay.Message {
 	merged := slices.Clone(fresh)
 	if next == 0 {
 		return merged
@@ -151,7 +151,7 @@ func (m model) applyMessages(msg messages.MessagesLoadedMsg) (model, tea.Cmd) {
 		}
 		d.messages = mergeNewer(d.messages, msg.Messages, msg.Next)
 		if first := d.stream.FirstSeq; first > 0 {
-			d.messages = slices.DeleteFunc(d.messages, func(msg tsui.Message) bool { return msg.Sequence < first })
+			d.messages = slices.DeleteFunc(d.messages, func(msg relay.Message) bool { return msg.Sequence < first })
 			if olderNext != 0 && olderNext <= first {
 				olderNext = 0
 			}
@@ -163,10 +163,10 @@ func (m model) applyMessages(msg messages.MessagesLoadedMsg) (model, tea.Cmd) {
 	}
 	d = &m.state.streamDetails
 	d.messagesLoaded, d.messagesStale = true, false
-	prune(d.selectedMessages, d.messages, func(msg tsui.Message) uint64 { return msg.Sequence })
+	prune(d.selectedMessages, d.messages, func(msg relay.Message) uint64 { return msg.Sequence })
 	// Following, the top row stays on the newest message; any other row stays on its message.
 	if ok && (!d.follow || d.selectedMessage > 0) {
-		d.selectedMessage = follow(m.getFilteredMessages(), d.selectedMessage, func(msg tsui.Message) bool { return msg.Sequence == prev.Sequence })
+		d.selectedMessage = follow(m.getFilteredMessages(), d.selectedMessage, func(msg relay.Message) bool { return msg.Sequence == prev.Sequence })
 	}
 	m = m.updateMessagesTable()
 	m, fill := m.fillOlder()
@@ -251,7 +251,7 @@ func (m model) messageTotal() (uint64, bool) {
 	}
 	var n uint64
 	for _, s := range d.subjects {
-		if tsui.SubjectMatches(d.subject, s.Subject) {
+		if relay.SubjectMatches(d.subject, s.Subject) {
 			n += s.Messages
 		}
 	}
@@ -320,7 +320,7 @@ func (m model) messagesEmpty() string {
 	case d.subject != "" && len(d.messages) == 0 && (d.loadingOlder || d.olderNext != 0):
 		return fmt.Sprintf("looking for older messages on %s…", d.subject)
 	case d.subject != "" && len(d.messages) == 0:
-		if tsui.HasWildcard(d.subject) {
+		if relay.HasWildcard(d.subject) {
 			return fmt.Sprintf("no messages on %s", d.subject)
 		}
 		return fmt.Sprintf("no messages on %s, try %s.>", d.subject, d.subject)
@@ -374,7 +374,7 @@ func (m model) jumpUpdate(msg tea.Msg) (model, tea.Cmd) {
 
 // yet words an empty stream that never held a message as waiting for its first one, which a
 // stream emptied by a purge or by its limits is not.
-func yet(s tsui.Stream) string {
+func yet(s relay.Stream) string {
 	if s.LastSeq == 0 {
 		return " yet"
 	}
@@ -383,7 +383,7 @@ func yet(s tsui.Stream) string {
 
 // missingMessage explains why there is no message at seq: it was deleted, or the stream holds
 // other sequences.
-func missingMessage(s tsui.Stream, seq uint64) string {
+func missingMessage(s relay.Stream, seq uint64) string {
 	switch {
 	case s.Messages > 0 && seq >= s.FirstSeq && seq <= s.LastSeq:
 		return fmt.Sprintf("message #%d was deleted", seq)
@@ -396,7 +396,7 @@ func missingMessage(s tsui.Stream, seq uint64) string {
 // openFetchedMessage opens a message fetched by its sequence.
 func (m model) openFetchedMessage(msg messages.MessageFetchedMsg) (model, tea.Cmd) {
 	switch {
-	case errors.Is(msg.Err, tsui.ErrMessageNotFound):
+	case errors.Is(msg.Err, relay.ErrMessageNotFound):
 		return m.setStatus(missingMessage(m.state.streamDetails.stream, msg.Sequence), styles.ToneWarning)
 	case msg.Err != nil:
 		return m.loadError(fmt.Sprintf("could not load message #%d", msg.Sequence), msg.Err, true)

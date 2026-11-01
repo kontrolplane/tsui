@@ -12,9 +12,9 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/nats-io/nats.go"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/commands"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/commands"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 type publishFocus int
@@ -58,7 +58,7 @@ func (m model) MessagePublishSwitchPage() (model, tea.Cmd) {
 	subject.SetStyles(styles.TextInput())
 	if len(stream.Subjects) > 0 {
 		subject.Placeholder = stream.Subjects[0]
-		subject.SetValue(tsui.SubjectPrefix(stream.Subjects[0]))
+		subject.SetValue(relay.SubjectPrefix(stream.Subjects[0]))
 	}
 
 	headers := textarea.New()
@@ -145,13 +145,13 @@ func (m model) submitPublish() (model, tea.Cmd) {
 	stream := m.state.streamDetails.stream
 
 	subject := strings.TrimSpace(p.subject.Value())
-	if !tsui.ValidPublishSubject(subject) {
+	if !relay.ValidPublishSubject(subject) {
 		m.error = fmt.Sprintf("%q is not a valid subject to publish to (no wildcards, spaces or empty tokens).", subject)
 		return m, nil
 	}
 	matches := false
 	for _, pattern := range stream.Subjects {
-		if tsui.SubjectMatches(pattern, subject) {
+		if relay.SubjectMatches(pattern, subject) {
 			matches = true
 			break
 		}
@@ -236,11 +236,11 @@ func (m model) publishSubjectStatus() []styles.Span {
 	switch {
 	case subject == "" || strings.HasSuffix(subject, "."):
 		return []styles.Span{styles.S("complete the subject to publish on", styles.ToneFaint)}
-	case !tsui.ValidPublishSubject(subject):
+	case !relay.ValidPublishSubject(subject):
 		return []styles.Span{styles.S("✗ ", styles.ToneDanger), styles.S("no wildcards, spaces or empty tokens when publishing", styles.ToneDanger)}
 	}
 	for _, pattern := range stream.Subjects {
-		if tsui.SubjectMatches(pattern, subject) {
+		if relay.SubjectMatches(pattern, subject) {
 			spans := []styles.Span{styles.S("✓ ", styles.ToneSuccess), styles.S("stored by ", styles.ToneMuted), styles.S(stream.Name, styles.ToneText), styles.S(" via ", styles.ToneMuted)}
 			return append(spans, styles.Subject(pattern, styles.ToneBody)...)
 		}

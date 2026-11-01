@@ -6,9 +6,9 @@
   </h1>
 </p>
 
-`tsui` is a terminal user interface (tui) application for managing `NATS`. It gives you a fast way to inspect and manage streams, messages and consumers directly from the terminal. Browse the newest messages of a stream without consuming them, publish messages with headers, follow consumer lag as it happens and purge or delete what you no longer need.
+`relay` is a terminal user interface (tui) application for managing `NATS`. It gives you a fast way to inspect and manage streams, messages and consumers directly from the terminal. Browse the newest messages of a stream without consuming them, publish messages with headers, follow consumer lag as it happens and purge or delete what you no longer need.
 
-<img width="1500" alt="tsui demo" src="./assets/cassette.gif">
+<img width="1500" alt="relay demo" src="./assets/cassette.gif">
 
 ## views
 
@@ -69,20 +69,20 @@ While the connection to NATS is down, the data on screen stays and the frame say
 With [go](https://go.dev/) 1.26+ installed:
 
 ```bash
-go install github.com/kontrolplane/tsui@latest
+go install github.com/kontrolplane/relay@latest
 ```
 
-Prebuilt binaries for linux, macos and windows are attached to the [GitHub releases](https://github.com/kontrolplane/tsui/releases), together with a `checksums.txt` to verify the download.
+Prebuilt binaries for linux, macos and windows are attached to the [GitHub releases](https://github.com/kontrolplane/relay/releases), together with a `checksums.txt` to verify the download.
 
-A container image for linux/amd64 and linux/arm64 is published to `ghcr.io/kontrolplane/tsui`, tagged with the release version and `latest` for releases, and `main` for the latest commit on main:
+A container image for linux/amd64 and linux/arm64 is published to `ghcr.io/kontrolplane/relay`, tagged with the release version and `latest` for releases, and `main` for the latest commit on main:
 
 ```bash
-docker run --rm -it --network host ghcr.io/kontrolplane/tsui:latest --server nats://127.0.0.1:4222
+docker run --rm -it --network host ghcr.io/kontrolplane/relay:latest --server nats://127.0.0.1:4222
 ```
 
 ## connecting
 
-`tsui` connects the same way as the [nats cli](https://github.com/nats-io/natscli). The context selected with `nats context select` is used by default, and flags or environment variables take precedence over the values from the context.
+`relay` connects the same way as the [nats cli](https://github.com/nats-io/natscli). The context selected with `nats context select` is used by default, and flags or environment variables take precedence over the values from the context.
 
 | flag                 | environment variable | description                                                    |
 | -------------------- | -------------------- | -------------------------------------------------------------- |
@@ -104,13 +104,13 @@ docker run --rm -it --network host ghcr.io/kontrolplane/tsui:latest --server nat
 | `--help`, `-h`       |                      | print the flags and exit                                       |
 
 ```bash
-tsui --context production
-tsui --server nats://localhost:4222 --creds ~/.nkeys/app.creds
+relay --context production
+relay --server nats://localhost:4222 --creds ~/.nkeys/app.creds
 ```
 
 ## development
 
-tsui uses a local NATS server with JetStream enabled, running in Docker.
+relay uses a local NATS server with JetStream enabled, running in Docker.
 
 - [docker](https://www.docker.com/)
 - [nats cli](https://github.com/nats-io/natscli)
@@ -143,12 +143,12 @@ To show the changes made in the repository readme, the following command can be 
 earthly +vhs
 ```
 
-### running kontrolplane/tsui locally
+### running kontrolplane/relay locally
 
 Start NATS, create the sample resources, build and run in one go:
 
 ```bash
-earthly +dev && ./build/kontrolplane/tsui --server nats://localhost:4222
+earthly +dev && ./build/kontrolplane/relay --server nats://localhost:4222
 ```
 
 Seeding skips streams that already exist, so this can be rerun. A consumer's `seed_ack` in the files under [seed/streams](./seed/streams) acknowledges that many messages, so the consumers show delivery progress. Remove the `volume` directory after `docker compose down` to start from scratch.

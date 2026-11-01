@@ -13,9 +13,9 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
-	"github.com/kontrolplane/tsui/pkg/tsui"
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
-	"github.com/kontrolplane/tsui/pkg/tui/styles"
+	"github.com/kontrolplane/relay/pkg/relay"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/styles"
 )
 
 var shiftTab = tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
@@ -41,13 +41,13 @@ func TestUntrustedTextIsEscaped(t *testing.T) {
 		}
 	}
 
-	stream := tsui.Stream{Name: "S" + evil, Description: evil, Subjects: []string{"orders.>"}, LastSeq: 2}
-	m, _ := update(t, newTestModel(), messages.StreamsLoadedMsg{Streams: []tsui.Stream{stream}})
+	stream := relay.Stream{Name: "S" + evil, Description: evil, Subjects: []string{"orders.>"}, LastSeq: 2}
+	m, _ := update(t, newTestModel(), messages.StreamsLoadedMsg{Streams: []relay.Stream{stream}})
 	check("overview", m.render())
 
 	m, _ = update(t, m, press("enter"))
 	m, _ = update(t, m, messages.StreamLoadedMsg{Name: stream.Name, Stream: stream},
-		messages.MessagesLoadedMsg{Stream: stream.Name, Messages: []tsui.Message{
+		messages.MessagesLoadedMsg{Stream: stream.Name, Messages: []relay.Message{
 			{Stream: stream.Name, Subject: "orders." + evil, Sequence: 2, Header: nats.Header{"X-Evil" + evil: {evil}}, Data: []byte(evil)},
 			{Stream: stream.Name, Subject: "orders.json", Sequence: 1, Data: []byte(`{"k":"` + "\u009d0;t\u009c" + `"}`)},
 		}})
@@ -136,7 +136,7 @@ func TestResultsOnlyApplyToTheirPage(t *testing.T) {
 	changed.Messages = 999
 	m, _ = update(t, m,
 		messages.StreamLoadedMsg{Name: "ORDERS", Stream: changed},
-		messages.MessagesLoadedMsg{Stream: "ORDERS", Messages: []tsui.Message{{Sequence: 99}}},
+		messages.MessagesLoadedMsg{Stream: "ORDERS", Messages: []relay.Message{{Sequence: 99}}},
 		messages.ConsumersLoadedMsg{Stream: "ORDERS", Err: errors.New("boom")},
 	)
 	d := m.state.streamDetails
@@ -160,8 +160,8 @@ func TestOutdatedMessageLoadsAreDropped(t *testing.T) {
 		t.Fatal("expected message loads")
 	}
 	m, _ = update(t, m,
-		messages.MessagesLoadedMsg{Stream: "ORDERS", Gen: m.msgsGen, Messages: []tsui.Message{{Stream: "ORDERS", Sequence: 5}}},
-		messages.MessagesLoadedMsg{Stream: "ORDERS", Gen: m.msgsGen - 1, Messages: []tsui.Message{{Stream: "ORDERS", Sequence: 4}}},
+		messages.MessagesLoadedMsg{Stream: "ORDERS", Gen: m.msgsGen, Messages: []relay.Message{{Stream: "ORDERS", Sequence: 5}}},
+		messages.MessagesLoadedMsg{Stream: "ORDERS", Gen: m.msgsGen - 1, Messages: []relay.Message{{Stream: "ORDERS", Sequence: 4}}},
 	)
 	if got := m.state.streamDetails.messages; len(got) != 1 || got[0].Sequence != 5 {
 		t.Errorf("expected the newer load to stay, got %+v", got)
@@ -205,7 +205,7 @@ func TestBackgroundErrorsGoToTheFooter(t *testing.T) {
 		t.Error("expected the messages on screen to stay")
 	}
 
-	m, _ = update(t, m, messages.ServerLoadedMsg{Server: tsui.Server{RTT: time.Millisecond}})
+	m, _ = update(t, m, messages.ServerLoadedMsg{Server: relay.Server{RTT: time.Millisecond}})
 	m, _ = update(t, m, messages.ServerLoadedMsg{Err: errors.New("timeout")})
 	if m.rttOK {
 		t.Error("expected a failed server load to clear the rtt")
@@ -244,7 +244,7 @@ func TestConsumerGoneWhileViewing(t *testing.T) {
 
 	m := detailsModel(t)
 	m, _ = update(t, m, press("tab"), press("enter"))
-	m, _ = update(t, m, messages.ConsumerLoadedMsg{Stream: "ORDERS", Name: "billing", Consumer: tsui.Consumer{Stream: "ORDERS", Name: "billing", Delivered: 7}})
+	m, _ = update(t, m, messages.ConsumerLoadedMsg{Stream: "ORDERS", Name: "billing", Consumer: relay.Consumer{Stream: "ORDERS", Name: "billing", Delivered: 7}})
 	if m.state.consumerDetails.consumer.Delivered != 7 || m.state.streamDetails.consumers[0].Delivered != 7 {
 		t.Error("expected the consumer to be refreshed")
 	}
@@ -252,7 +252,7 @@ func TestConsumerGoneWhileViewing(t *testing.T) {
 
 func TestCursorStaysOnItsItem(t *testing.T) {
 	now := time.Now()
-	newer := []tsui.Message{
+	newer := []relay.Message{
 		{Stream: "ORDERS", Subject: "orders.eu.created", Sequence: 4, Time: now},
 		{Stream: "ORDERS", Subject: "orders.eu.created", Sequence: 3, Time: now},
 		{Stream: "ORDERS", Subject: "orders.us.created", Sequence: 2, Time: now},
@@ -273,7 +273,7 @@ func TestCursorStaysOnItsItem(t *testing.T) {
 
 	m = loadedModel(t)
 	m, _ = update(t, m, press("j"), press("j"))
-	m, _ = update(t, m, messages.StreamsLoadedMsg{Streams: append([]tsui.Stream{{Name: "ALPHA"}}, testStreams...)})
+	m, _ = update(t, m, messages.StreamsLoadedMsg{Streams: append([]relay.Stream{{Name: "ALPHA"}}, testStreams...)})
 	if s, _ := m.currentStream(); s.Name != "ORDERS" {
 		t.Errorf("expected the cursor to stay on ORDERS, got %s", s.Name)
 	}
@@ -282,7 +282,7 @@ func TestCursorStaysOnItsItem(t *testing.T) {
 func TestSelectionOnlyHoldsListedItems(t *testing.T) {
 	m := detailsModel(t)
 	m, _ = update(t, m, press("space"))
-	m, _ = update(t, m, messages.MessagesLoadedMsg{Stream: "ORDERS", Messages: []tsui.Message{
+	m, _ = update(t, m, messages.MessagesLoadedMsg{Stream: "ORDERS", Messages: []relay.Message{
 		{Stream: "ORDERS", Subject: "orders.eu.created", Sequence: 5},
 		{Stream: "ORDERS", Subject: "orders.eu.created", Sequence: 4},
 	}})
@@ -290,8 +290,8 @@ func TestSelectionOnlyHoldsListedItems(t *testing.T) {
 		t.Errorf("expected the selection of a message no longer listed to be dropped, got %d", n)
 	}
 
-	if got := selectedOr(map[uint64]bool{99: true}, []tsui.Message{{Sequence: 1}}, func(m tsui.Message) uint64 { return m.Sequence },
-		func() (tsui.Message, bool) { return tsui.Message{Sequence: 1}, true }); len(got) != 0 {
+	if got := selectedOr(map[uint64]bool{99: true}, []relay.Message{{Sequence: 1}}, func(m relay.Message) uint64 { return m.Sequence },
+		func() (relay.Message, bool) { return relay.Message{Sequence: 1}, true }); len(got) != 0 {
 		t.Errorf("expected a selection not to fall back to the cursor, got %v", got)
 	}
 
@@ -357,7 +357,7 @@ func TestSubjectDrillReturnsToTheSubject(t *testing.T) {
 	if m.state.streamDetails.tab != tabMessages {
 		t.Fatalf("expected shift+tab to go back a tab, got %v", m.state.streamDetails.tab)
 	}
-	m, _ = update(t, m, shiftTab, messages.SubjectsLoadedMsg{Stream: "ORDERS", Subjects: []tsui.SubjectCount{
+	m, _ = update(t, m, shiftTab, messages.SubjectsLoadedMsg{Stream: "ORDERS", Subjects: []relay.SubjectCount{
 		{Subject: "orders.eu.created", Messages: 1}, {Subject: "orders.eu.shipped", Messages: 1}, {Subject: "orders.us.created", Messages: 1},
 	}})
 	m, _ = update(t, m, press("j"), press("j"), press("enter"))
@@ -416,10 +416,10 @@ func TestMessageDetailsTopAndBottom(t *testing.T) {
 }
 
 func TestConsumerWildcardFilter(t *testing.T) {
-	all := tsui.Consumer{Name: "all"}
-	shipped := tsui.Consumer{Name: "shipping", FilterSubjects: []string{"orders.*.shipped"}}
-	payments := tsui.Consumer{Name: "payments", FilterSubjects: []string{"payments.>"}}
-	for c, want := range map[*tsui.Consumer]bool{&all: true, &shipped: true, &payments: false} {
+	all := relay.Consumer{Name: "all"}
+	shipped := relay.Consumer{Name: "shipping", FilterSubjects: []string{"orders.*.shipped"}}
+	payments := relay.Consumer{Name: "payments", FilterSubjects: []string{"payments.>"}}
+	for c, want := range map[*relay.Consumer]bool{&all: true, &shipped: true, &payments: false} {
 		if got := consumerMatches(*c, "orders.eu.*", true); got != want {
 			t.Errorf("consumerMatches(%s, orders.eu.*) = %v, want %v", c.Name, got, want)
 		}
@@ -439,14 +439,14 @@ func TestOverviewFilterMatching(t *testing.T) {
 		{"orders.eu", "ORD", true},
 		{"events.*", "events.a.b", false},
 	} {
-		if got := streamMatches(tsui.Stream{Name: "X", Subjects: []string{c.subject}}, c.filter); got != c.want {
+		if got := streamMatches(relay.Stream{Name: "X", Subjects: []string{c.subject}}, c.filter); got != c.want {
 			t.Errorf("streamMatches(%s, %q) = %v, want %v", c.subject, c.filter, got, c.want)
 		}
 	}
 }
 
 func TestPurgeSubjects(t *testing.T) {
-	s := tsui.Stream{Subjects: []string{"orders.>", "payments.*"}}
+	s := relay.Stream{Subjects: []string{"orders.>", "payments.*"}}
 	for subject, want := range map[string]bool{
 		"orders.eu": true, "orders.*": true, ">": true, "payments.card": true, "*.eu": true,
 		"payments.a.b": false, "refunds.eu": false, "payments.*.eu": false,
@@ -580,7 +580,7 @@ func TestPurge(t *testing.T) {
 
 	// A small subject with a known size purges at once.
 	m = detailsModel(t)
-	m, _ = update(t, m, messages.SubjectsLoadedMsg{Stream: "ORDERS", Subjects: []tsui.SubjectCount{{Subject: "orders.eu.created", Messages: 3}}})
+	m, _ = update(t, m, messages.SubjectsLoadedMsg{Stream: "ORDERS", Subjects: []relay.SubjectCount{{Subject: "orders.eu.created", Messages: 3}}})
 	m, _ = update(t, m, press("ctrl+p"), press("tab"))
 	m = typeText(t, m, "orders.eu.created")
 	m, _ = update(t, m, press("tab"), press("y"))
@@ -652,7 +652,7 @@ func TestResultsAreReported(t *testing.T) {
 	}
 
 	m = loadedModel(t)
-	m, _ = update(t, m, messages.StreamCreatedMsg{Stream: tsui.Stream{Name: "NEW"}})
+	m, _ = update(t, m, messages.StreamCreatedMsg{Stream: relay.Stream{Name: "NEW"}})
 	if m.page != streamDetails || m.statusMsg != "created stream NEW" {
 		t.Errorf("unexpected status %q", m.statusMsg)
 	}

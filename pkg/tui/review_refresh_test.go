@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kontrolplane/tsui/pkg/tui/messages"
+	"github.com/kontrolplane/relay/pkg/tui/messages"
 )
 
 // A reload that fails after the stream changed is never retried by the refresh, since the stream
